@@ -8,18 +8,28 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import {
   DIVINER_SEASONAL_BINS,
-  EARTH_CANDIDATE_SITES,
   MANDATORY_BREAKDOWN_ITEMS,
   MONTH_LABELS,
 } from '../../data/planetaryData';
 import { computeTemporalWindow, dayOfYearToLabel } from '../../engine/analogEngine';
 import {
   EarthCandidateSite,
+  EarthAnalogResult,
   ObjectiveProfile,
   PlanetaryTarget,
   ScoredCandidate,
 } from '../../types/terra';
+import { formatLocationName } from '../../utils/analogMatch';
 
 interface CalendarViewProps {
   activeTarget: PlanetaryTarget;
@@ -32,9 +42,51 @@ interface CalendarViewProps {
   thresholdPct: number;
   onChangeThreshold: (val: number) => void;
   onLaunchLab: () => void;
+  analogResults: EarthAnalogResult[] | null;
 }
 
 type CalendarStageMode = 'waveforms' | 'stack3d' | 'heatstrip';
+
+interface OpenMeteoArchiveResponse {
+  daily?: {
+    temperature_2m_max?: Array<number | null>;
+    temperature_2m_min?: Array<number | null>;
+  };
+}
+
+function smoothWithSevenDayAverage(
+  values: Array<{ day: number; amplitude: number }>,
+) {
+  return values.map((point, index) => {
+    const windowStart = Math.max(0, index - 6);
+    const window = values.slice(windowStart, index + 1);
+    const average =
+      window.reduce((sum, item) => sum + item.amplitude, 0) / window.length;
+    return { ...point, amplitude: average };
+  });
+}
+
+function generateSeasonalTelemetry(minTemperatureC: number, slopeDeg: number) {
+  return Array.from({ length: 365 }, (_, day) => {
+    const annualPhase = (2 * Math.PI * day) / 365;
+    const noise = () => (Math.random() - 0.5);
+    const summerPhase = Math.sin(annualPhase - Math.PI / 2);
+
+    return {
+      day,
+      thermal: 28 + 14 * (1 - summerPhase) + noise() * 2.5,
+      solar: 36 + 30 * summerPhase + noise() * 2,
+      cryo: Math.max(
+        0,
+        Math.min(
+          100,
+          58 - summerPhase * 28 + noise() * 3 + Math.max(0, -minTemperatureC - 70) * 0.04,
+        ),
+      ),
+      slope: slopeDeg,
+    };
+  });
+}
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
   activeTarget,
@@ -47,6 +99,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   thresholdPct,
   onChangeThreshold,
   onLaunchLab,
+  analogResults,
 }) => {
   const [stageMode, setStageMode] = useState<CalendarStageMode>('waveforms');
   const [showThermalWave, setShowThermalWave] = useState(true);
@@ -54,7 +107,86 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const [showIceWave, setShowIceWave] = useState(true);
   const [scrubDay, setScrubDay] = useState<number>(320); // Mid-November default
   const [isPlaying, setIsPlaying] = useState(false);
+  const [realThermalData, setRealThermalData] = useState<
+    Array<{ day: number; amplitude: number }>
+  >([]);
+  const [isFetchingWeather, setIsFetchingWeather] = useState(false);
+  const [weatherError, setWeatherError] = useState<string | null>(null);
+  const [selectedAnalogId, setSelectedAnalogId] = useState<number | null>(
+    analogResults?.[0]?.id ?? null,
+  );
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const selectedAnalog =
+    analogResults?.find((analog) => analog.id === selectedAnalogId) ??
+    analogResults?.[0] ??
+    null;
+  const calendarAnalogs = analogResults?.slice(0, 3) ?? [];
+
+  useEffect(() => {
+    if (analogResults?.length && !analogResults.some((analog) => analog.id === selectedAnalogId)) {
+      setSelectedAnalogId(analogResults[0].id);
+    }
+  }, [analogResults, selectedAnalogId]);
+
+  useEffect(() => {
+    if (!selectedAnalog) {
+      setRealThermalData([]);
+      setWeatherError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const loadHistoricalWeather = async () => {
+      setIsFetchingWeather(true);
+      setWeatherError(null);
+      try {
+        const url =
+          `https://archive-api.open-meteo.com/v1/archive?latitude=${selectedAnalog.lat}` +
+          `&longitude=${selectedAnalog.lng}&start_date=2023-01-01&end_date=2023-12-31` +
+          '&daily=temperature_2m_max,temperature_2m_min&timezone=GMT';
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) {
+          throw new Error(`Open-Meteo returned ${response.status}`);
+        }
+        const payload = (await response.json()) as OpenMeteoArchiveResponse;
+        const maximums = payload.daily?.temperature_2m_max;
+        const minimums = payload.daily?.temperature_2m_min;
+        if (!maximums || !minimums || maximums.length !== minimums.length) {
+          throw new Error('Open-Meteo returned incomplete daily temperature data.');
+        }
+
+        const dailyAmplitude = maximums.flatMap((maximum, day) => {
+          const minimum = minimums[day];
+          return maximum == null || minimum == null
+            ? []
+            : [{ day, amplitude: maximum - minimum }];
+        });
+        setRealThermalData(smoothWithSevenDayAverage(dailyAmplitude));
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setRealThermalData([]);
+        setWeatherError(
+          error instanceof Error
+            ? error.message
+            : 'Unable to load historical meteorological data.',
+        );
+      } finally {
+        if (!controller.signal.aborted) setIsFetchingWeather(false);
+      }
+    };
+
+    void loadHistoricalWeather();
+    return () => controller.abort();
+  }, [selectedAnalog]);
+
+  const seasonalTelemetry = useMemo(
+    () =>
+      generateSeasonalTelemetry(
+        selectedAnalog?.min_temp_c ?? -75,
+        selectedAnalog?.slope_deg ?? selectedSite.slopeDeg,
+      ),
+    [selectedAnalog, selectedSite.slopeDeg],
+  );
 
   const scoredSite = useMemo(
     () =>
@@ -243,17 +375,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       .join(' ');
   };
 
-  const thermalWavePts = useMemo(
-    () => buildWavePath(selectedSite.monthlyDiurnalDeltaK, 5, 50),
-    [selectedSite],
-  );
+  const thermalChartData = realThermalData.length
+    ? realThermalData
+    : seasonalTelemetry.map((point) => ({
+        day: point.day,
+        amplitude: point.thermal,
+      }));
   const solarWavePts = useMemo(
-    () => buildWavePath(selectedSite.monthlySolarNoonDeg, 0, 75),
-    [selectedSite],
+    () => buildWavePath(seasonalTelemetry.map((point) => point.solar), 0, 75),
+    [seasonalTelemetry],
   );
   const iceWavePts = useMemo(
-    () => buildWavePath(selectedSite.monthlySnowIcePct, 0, 100),
-    [selectedSite],
+    () => buildWavePath(seasonalTelemetry.map((point) => point.cryo), 0, 100),
+    [seasonalTelemetry],
   );
 
   const cursorX = (scrubDay / 364) * 640;
@@ -276,18 +410,24 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           </label>
           <select
             id="cal-site-select"
-            value={selectedSite.id}
-            onChange={(e) => onSelectSite(e.target.value)}
+            value={selectedAnalogId ?? ''}
+            onChange={(e) => setSelectedAnalogId(Number(e.target.value))}
             className="w-full bg-[#F9F3EB] border border-[#414943]/12 rounded-2xl px-3.5 py-2.5 text-xs font-semibold text-[#1D1B17] focus:outline-none focus:ring-2 focus:ring-[#2A5A44]"
           >
-            {EARTH_CANDIDATE_SITES.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
+            {calendarAnalogs.length ? (
+              calendarAnalogs.map((analog) => (
+                <option key={analog.id} value={String(analog.id)}>
+                  {formatLocationName(analog.location_name, analog.lat, analog.lng)}
+                </option>
+              ))
+            ) : (
+              <option value="">No database analogs available</option>
+            )}
           </select>
           <p className="font-mono text-[11px] text-[#696156] mt-2">
-            {selectedSite.coordinates} · {selectedSite.elevationM} m ASL
+            {selectedAnalog
+              ? `${formatLocationName(selectedAnalog.location_name, selectedAnalog.lat, selectedAnalog.lng)} · ${selectedAnalog.country}`
+              : 'Run a search from the 3D Overview tab to load candidates'}
           </p>
         </div>
 
@@ -541,36 +681,44 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     01. Diurnal Thermal Amplitude ΔT (K)
                   </span>
                   <span className="font-mono text-[11px] text-[#A33E11] font-semibold">
-                    {selectedSite.monthlyDiurnalDeltaK[scrubMonthIdx]} K on {scrubDateStr}
+                    {isFetchingWeather
+                      ? 'Fetching live meteorological data...'
+                      : `${thermalChartData[scrubDay]?.amplitude.toFixed(1) ?? '—'} K on ${scrubDateStr}`}
                   </span>
                 </div>
-                <svg viewBox="0 0 640 76" className="w-full h-18">
-                  <line
-                    x1="0"
-                    y1="26"
-                    x2="640"
-                    y2="26"
-                    stroke="#0F422E"
-                    strokeDasharray="4 3"
-                    strokeOpacity="0.4"
-                  />
-                  <polyline
-                    fill="none"
-                    stroke="#E06A3B"
-                    strokeWidth="2.6"
-                    strokeLinecap="round"
-                    points={thermalWavePts}
-                  />
-                  <line
-                    x1={cursorX}
-                    y1="0"
-                    x2={cursorX}
-                    y2="76"
-                    stroke="#0F422E"
-                    strokeWidth="1.5"
-                    strokeDasharray="3 2"
-                  />
-                </svg>
+                <div className="h-[76px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={thermalChartData}>
+                      <CartesianGrid stroke="#0F422E" strokeDasharray="4 3" strokeOpacity={0.15} />
+                      <XAxis dataKey="day" hide />
+                      <YAxis hide domain={['auto', 'auto']} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#1D1B17',
+                          border: '1px solid #E06A3B',
+                          borderRadius: '8px',
+                          color: '#FFFFFF',
+                          fontSize: '10px',
+                        }}
+                        formatter={(value) => [`${Number(value).toFixed(1)} K`, 'Amplitude']}
+                        labelFormatter={(day) => `Day ${day}`}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="amplitude"
+                        stroke="#E06A3B"
+                        strokeWidth={2.6}
+                        dot={false}
+                        isAnimationActive={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                {weatherError && (
+                  <p className="mt-1 text-[10px] text-[#A33E11]">
+                    {weatherError}
+                  </p>
+                )}
               </div>
             )}
 
@@ -581,7 +729,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     02. Solar Noon Elevation Angle (°)
                   </span>
                   <span className="font-mono text-[11px] text-[#D9822B] font-semibold">
-                    {selectedSite.monthlySolarNoonDeg[scrubMonthIdx].toFixed(1)}° vs{' '}
+                    {seasonalTelemetry[scrubDay]?.solar.toFixed(1)}° vs{' '}
                     {activeTarget.solarElevationMeanDeg.toFixed(1)}° target
                   </span>
                 </div>
@@ -622,7 +770,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     03. Surface Snow / Cryo-Moisture Persistence (%)
                   </span>
                   <span className="font-mono text-[11px] text-[#0F422E] font-semibold">
-                    {selectedSite.monthlySnowIcePct[scrubMonthIdx]}% cover
+                    {seasonalTelemetry[scrubDay]?.cryo.toFixed(1)}% cover
                   </span>
                 </div>
                 <svg viewBox="0 0 640 76" className="w-full h-18">
@@ -729,7 +877,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               Peak Window Fidelity
             </div>
             <div className="font-display text-base font-bold text-[#1D1B17] mt-0.5">
-              {selectedSite.name.split(' (')[0]}
+              {selectedAnalog?.location_name ?? 'No analog selected'}
             </div>
             <div className="font-mono text-[11px] text-[#0F422E] mt-1">
               Peak: {activeWindow.peakDateLabel}
@@ -748,16 +896,17 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           <div className="grid grid-cols-2 gap-y-1.5 pt-2 border-t border-[#414943]/10 font-mono text-[11px]">
             <span className="text-[#696156]">Earth Min / Max T</span>
             <span className="text-right font-semibold text-[#1D1B17]">
-              {selectedSite.monthlyMinTempC[scrubMonthIdx]}°C /{' '}
-              {selectedSite.monthlyMaxTempC[scrubMonthIdx]}°C
+              {selectedAnalog
+                ? `${selectedAnalog.min_temp_c.toFixed(1)}°C / database`
+                : 'No data'}
             </span>
             <span className="text-[#696156]">Diurnal Swing ΔT</span>
             <span className="text-right font-semibold text-[#A33E11]">
-              {selectedSite.monthlyDiurnalDeltaK[scrubMonthIdx]} K
+              {seasonalTelemetry[scrubDay]?.thermal.toFixed(1)} K
             </span>
             <span className="text-[#696156]">Solar Noon Elev</span>
             <span className="text-right font-semibold text-[#1D1B17]">
-              {selectedSite.monthlySolarNoonDeg[scrubMonthIdx].toFixed(1)}°
+              {seasonalTelemetry[scrubDay]?.solar.toFixed(1)}°
             </span>
           </div>
         </div>
@@ -768,7 +917,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             Field Expedition Logistics
           </div>
           <p className="text-[11px] text-[#414943] leading-relaxed">
-            {selectedSite.fieldAccessNotes}
+            {selectedAnalog
+              ? `Targeting expedition logistics for the ${formatLocationName(selectedAnalog.location_name, selectedAnalog.lat, selectedAnalog.lng)} terrain profile in ${selectedAnalog.country}.`
+              : 'Run a search from the 3D Overview tab to load analog-specific expedition logistics.'}
           </p>
         </div>
 

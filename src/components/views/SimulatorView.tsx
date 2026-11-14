@@ -11,13 +11,25 @@ import {
   Scissors,
   Wrench,
 } from 'lucide-react';
-import { CAD_PARTS, EARTH_CANDIDATE_SITES } from '../../data/planetaryData';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import { CAD_PARTS } from '../../data/planetaryData';
 import { simulateHardwareDegradation } from '../../engine/analogEngine';
 import {
   CadPartId,
+  EarthAnalogResult,
   EarthCandidateSite,
   SimEnvironment,
 } from '../../types/terra';
+import { formatLocationName } from '../../utils/analogMatch';
 import {
   EquipmentTwin3D,
   PartScreenAnchor,
@@ -25,20 +37,23 @@ import {
 
 interface SimulatorViewProps {
   selectedSite: EarthCandidateSite;
-  onSelectSite: (siteId: string) => void;
   onOpenReports?: () => void;
+  analogResults: EarthAnalogResult[] | null;
 }
 
 type DockMode = 'dashboard' | 'procedures' | 'documents' | 'parts' | 'section';
 
 export const SimulatorView: React.FC<SimulatorViewProps> = ({
   selectedSite,
-  onSelectSite,
   onOpenReports,
+  analogResults,
 }) => {
   const [simEnv, setSimEnv] = useState<SimEnvironment>('earth_analog');
   const [simYears, setSimYears] = useState<number>(5.0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [selectedAnalogId, setSelectedAnalogId] = useState<number | null>(
+    analogResults?.[0]?.id ?? null,
+  );
 
   const [selectedPartId, setSelectedPartId] = useState<CadPartId | null>('fasteners');
   const [exploded, setExploded] = useState<boolean>(false);
@@ -54,6 +69,19 @@ export const SimulatorView: React.FC<SimulatorViewProps> = ({
   const [anchors, setAnchors] = useState<Record<CadPartId, PartScreenAnchor> | null>(
     null,
   );
+  const selectedAnalog =
+    analogResults?.find((analog) => analog.id === selectedAnalogId) ??
+    analogResults?.[0] ??
+    null;
+
+  useEffect(() => {
+    if (
+      analogResults?.length &&
+      !analogResults.some((analog) => analog.id === selectedAnalogId)
+    ) {
+      setSelectedAnalogId(analogResults[0].id);
+    }
+  }, [analogResults, selectedAnalogId]);
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -125,23 +153,18 @@ export const SimulatorView: React.FC<SimulatorViewProps> = ({
         ? 'Moon South Pole (Shackleton)'
         : 'Mars Jezero Crater';
 
-  // Cumulative wear curve points across Year 0..10
-  const wearSparkline = useMemo(() => {
-    const pts: string[] = [];
-    for (let i = 0; i <= 10; i++) {
-      const states = simulateHardwareDegradation(i, simEnv, selectedSite, {
+  const fatigueCurve = useMemo(() => {
+    return Array.from({ length: 51 }, (_, index) => {
+      const year = index / 5;
+      const states = simulateHardwareDegradation(year, simEnv, selectedSite, {
         thermalGain,
         corrosiveGain,
         abrasionGain,
       });
       const st =
         states.find((s) => s.part.id === activePartState.part.id) || states[0];
-      const x = (i / 10) * 320;
-      const norm = Math.min(1, st.damageIndex / 1.6);
-      const y = 36 - norm * 28;
-      pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
-    }
-    return pts.join(' ');
+      return { year, damage: st.damageIndex };
+    });
   }, [simEnv, selectedSite, thermalGain, corrosiveGain, abrasionGain, activePartState.part.id]);
 
   return (
@@ -212,13 +235,31 @@ export const SimulatorView: React.FC<SimulatorViewProps> = ({
             <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#696156] block">
               Target Regime
             </span>
+            <label className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[#696156]">
+            Earth Analog Candidate
+            <select
+              value={selectedAnalogId ?? ''}
+              onChange={(event) => setSelectedAnalogId(Number(event.target.value))}
+              className="mt-2 w-full rounded-2xl border border-[#414943]/12 bg-[#F9F3EB] px-3 py-2.5 text-xs font-semibold text-[#1D1B17] outline-none focus:border-[#184633]"
+            >
+              {analogResults?.length ? (
+                analogResults.slice(0, 3).map((analog) => (
+                  <option key={analog.id} value={String(analog.id)}>
+                    {formatLocationName(analog.location_name, analog.lat, analog.lng)}
+                  </option>
+                ))
+              ) : (
+                <option value="">No database analogs available</option>
+              )}
+            </select>
+            </label>
             <div className="flex flex-col gap-2">
               {(
                 [
                   {
                     id: 'earth_analog',
                     title: 'Earth Analog Field Site',
-                    sub: `${selectedSite.name.split(' (')[0]} · Salinity ${selectedSite.salinityIndex}/100`,
+                    sub: `${selectedAnalog ? formatLocationName(selectedAnalog.location_name, selectedAnalog.lat, selectedAnalog.lng) : selectedSite.name.split(' (')[0]} · Salinity ${selectedSite.salinityIndex}/100`,
                   },
                   {
                     id: 'moon_south_pole',
@@ -254,20 +295,6 @@ export const SimulatorView: React.FC<SimulatorViewProps> = ({
               ))}
             </div>
 
-            {simEnv === 'earth_analog' && (
-              <select
-                aria-label="Select Earth analog for corrosion test"
-                value={selectedSite.id}
-                onChange={(e) => onSelectSite(e.target.value)}
-                className="w-full bg-[#F9F3EB] border border-[#414943]/12 rounded-2xl px-3 py-2 text-xs font-semibold text-[#1D1B17]"
-              >
-                {EARTH_CANDIDATE_SITES.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            )}
           </section>
 
           <section className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-5 space-y-3">
@@ -517,21 +544,21 @@ export const SimulatorView: React.FC<SimulatorViewProps> = ({
                     Math.min(failingAnchor.x - 265, 310),
                   )}px, ${Math.max(70, Math.min(failingAnchor.y - 20, 290))}px, 0)`,
                 }}
-                className="pointer-events-none absolute top-0 left-0 w-64 bg-[#FFFFFF] border border-[#DC2626] rounded-2xl p-3 shadow-lg z-10"
+                className="pointer-events-none absolute top-0 left-0 z-10 w-64 rounded-lg border border-red-500/50 bg-slate-900/80 p-3 text-white shadow-xl backdrop-blur-md"
               >
                 <div className="flex items-center justify-between gap-1 mb-1">
-                  <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-[#B91C1C]">
+                  <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-red-400">
                     <AlertOctagon className="w-3 h-3" />
                     CRITICAL FAILURE · YR {simYears.toFixed(1)}
                   </span>
-                  <span className="font-mono text-[10px] font-semibold text-[#B91C1C]">
+                  <span className="font-mono text-[10px] font-semibold text-red-400">
                     D={primaryFailing.damageIndex.toFixed(2)}
                   </span>
                 </div>
-                <div className="text-xs font-bold text-[#1D1B17]">
+                <div className="text-xs font-bold text-white">
                   {primaryFailing.part.name}
                 </div>
-                <p className="text-[11px] text-[#475569] mt-1 leading-snug">
+                <p className="mt-1 text-[11px] leading-snug text-slate-300">
                   {primaryFailing.mechanismSummary}
                 </p>
               </div>
@@ -612,32 +639,53 @@ export const SimulatorView: React.FC<SimulatorViewProps> = ({
               </div>
             </div>
 
-            <svg viewBox="0 0 320 40" className="w-full h-10">
-              <line
-                x1="0"
-                y1="18"
-                x2="320"
-                y2="18"
-                stroke="#E06A3B"
-                strokeDasharray="3 2"
-                strokeOpacity="0.45"
-              />
-              <polyline
-                fill="none"
-                stroke="#0F422E"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                points={wearSparkline}
-              />
-              <circle
-                cx={(simYears / 10) * 320}
-                cy={36 - Math.min(1, activePartState.damageIndex / 1.6) * 28}
-                r="4"
-                fill="#E06A3B"
-                stroke="#FFFFFF"
-                strokeWidth="1.5"
-              />
-            </svg>
+            <div className="h-28 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={fatigueCurve} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="fatigueDangerGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#DC2626" stopOpacity={0.55} />
+                      <stop offset="100%" stopColor="#DC2626" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="#CBD5E1" strokeDasharray="3 3" strokeOpacity={0.45} />
+                  <XAxis
+                    dataKey="year"
+                    ticks={[0, 2, 4, 6, 8, 10]}
+                    tick={{ fill: '#696156', fontSize: 9 }}
+                    tickFormatter={(value: number) => `Y${value}`}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis hide domain={[0, 'auto']} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#0F172A',
+                      border: '1px solid rgba(239, 68, 68, 0.5)',
+                      borderRadius: '8px',
+                      color: '#FFFFFF',
+                      fontSize: '10px',
+                    }}
+                    labelFormatter={(value) => `Year ${Number(value).toFixed(1)}`}
+                    formatter={(value) => [Number(value).toFixed(2), 'Damage Index']}
+                  />
+                  <ReferenceLine
+                    x={simYears}
+                    stroke="#E06A3B"
+                    strokeDasharray="4 3"
+                    label={{ value: `YR ${simYears.toFixed(1)}`, fill: '#A33E11', fontSize: 9 }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="damage"
+                    stroke="#DC2626"
+                    fill="url(#fatigueDangerGradient)"
+                    strokeWidth={2}
+                    isAnimationActive={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
 
             <div className="flex items-center gap-3">
               <span className="font-mono text-[10px] text-[#696156]">Day 1</span>

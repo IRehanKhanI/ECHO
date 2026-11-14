@@ -25,7 +25,10 @@ import {
   ScoredCandidate,
   EarthAnalogResult,
 } from '../../types/terra';
-import { calculateTemperatureMatchPercentage } from '../../utils/analogMatch';
+import {
+  calculateTemperatureMatchPercentage,
+  formatLocationName,
+} from '../../utils/analogMatch';
 import { ProvenanceBadge } from '../common/ProvenanceBadge';
 import { TerrainPreviewArtwork } from '../common/TerrainPreviewArtwork';
 
@@ -68,6 +71,21 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
   const backtests = useMemo(() => runBacktestValidation(), []);
   const breakdownItems = MANDATORY_BREAKDOWN_ITEMS[activeTarget.body];
+  const reportAnalogs = analogResults?.slice(0, 3) ?? [];
+
+  const engineeringObjectiveRows = useMemo(
+    () =>
+      portfolio.allocations.map((row, index) => {
+        const analog = reportAnalogs[index % reportAnalogs.length];
+        return {
+          ...row,
+          assignedSiteName: analog
+            ? formatLocationName(analog.location_name, analog.lat, analog.lng)
+            : row.assignedSiteName,
+        };
+      }),
+    [portfolio.allocations, reportAnalogs],
+  );
 
   const triggerDownload = (filename: string, content: string, mime: string) => {
     const blob = new Blob([content], { type: mime });
@@ -206,9 +224,18 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               0{portfolio.selectedSites.length}
             </div>
             <div className="text-[10px] text-[#696156] font-mono">
-              {portfolio.selectedSites
-                .map((s) => s.name.split(' ')[0])
-                .join(' · ')}
+              {reportAnalogs.length
+                ? reportAnalogs
+                    .map((analog) => {
+                      const formattedName = formatLocationName(
+                        analog.location_name,
+                        analog.lat,
+                        analog.lng,
+                      );
+                      return formattedName.split(' (')[0];
+                    })
+                    .join(' • ')
+                : 'No analogs selected'}
             </div>
           </div>
         </div>
@@ -439,14 +466,14 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                   >
                     <TerrainPreviewArtwork
                       siteId={`supabase-analog-${analog.id}`}
-                      siteName={analog.location_name}
+                      siteName={formatLocationName(analog.location_name, analog.lat, analog.lng)}
                       badgeText={`Site ${String.fromCharCode(65 + idx)} · ${analog.country}`}
                       scoreText={`${scoreVal.toFixed(1)}%`}
                       heightClass="h-24"
                     />
                     <div>
                       <h3 className="font-display text-base font-bold text-[#1D1B17] leading-tight">
-                        {analog.location_name}
+                        {formatLocationName(analog.location_name, analog.lat, analog.lng)}
                       </h3>
                       <p className="font-mono text-[10px] text-[#696156] mt-0.5">
                         {analog.country} · {analog.lat.toFixed(2)}°, {analog.lng.toFixed(2)}°
@@ -482,7 +509,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#414943]/10">
-                  {portfolio.allocations.map((row) => (
+                  {engineeringObjectiveRows.map((row) => (
                     <tr key={row.objectiveId}>
                       <td className="py-2.5 px-3.5 font-semibold text-[#1D1B17]">
                         {row.objectiveName}

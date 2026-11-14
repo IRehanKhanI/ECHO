@@ -1,0 +1,6 @@
+site_id,name,lat,lon,elevation_m,mean_slope_deg,min_temp_k,max_temp_k,weh_ice_wt_pct,sulfur_ppm,plagioclase_pct,pyroxene_pct,feo_wt_pct
+ART-01,Mons Mouton,-84.6,31.0,6000,7.2,54,240,1.4,420,78.5,14.2,4.8
+ART-02,Malapert Massif,-86.0,0.0,5100,9.5,50,235,1.8,510,76.0,15.8,5.2
+ART-03,Haworth,-87.5,-5.0,-1200,11.4,38,145,4.9,1150,74.2,16.5,5.6
+ART-04,Nobile Rim 1,-85.2,52.0,3200,8.1,48,225,2.3,680,77.1,15.0,5.0
+ART-05,Peak near Cabeus B,-88.1,-35.0,2100,10.2,42,190,5.6,1420,73.5,17.1,5.9

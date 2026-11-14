@@ -36,6 +36,7 @@ import {
 } from '../../types/terra';
 import {
   calculateTemperatureMatchPercentage,
+  formatLocationName,
   sortEarthAnalogResults,
 } from '../../utils/analogMatch';
 import { TerrainPreviewArtwork } from '../common/TerrainPreviewArtwork';
@@ -67,12 +68,6 @@ interface OverviewViewProps {
 interface EarthAnalogResponse {
   matches: EarthAnalogResult[];
 }
-
-const realAntarcticNames = [
-  'University Valley, Quartermain Mountains',
-  'Beacon Valley, McMurdo Dry Valleys',
-  'Dome C, Antarctic Plateau',
-];
 
 export const OverviewView: React.FC<OverviewViewProps> = ({
   activeBody,
@@ -199,6 +194,11 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     } finally {
       setIsFetchingAnalogs(false);
     }
+  };
+
+  const handleOpenDiscovery = async () => {
+    await fetchEarthAnalogs();
+    setActiveTab('discovery');
   };
 
   const coldestAnalogTemperature = earthAnalogs[0]?.min_temp_c ?? -203;
@@ -417,13 +417,15 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </div>
         </div>
 
-        {/* Action Button: Launch Analog Search */}
+        {/* Action Button: Open Advanced Discovery */}
         <button
           type="button"
-          onClick={() => setActiveTab('discovery')}
+          onClick={() => {
+            void handleOpenDiscovery();
+          }}
           className="w-full bg-[#E06A3B] hover:bg-[#C95528] active:scale-[0.99] text-white font-bold py-3 px-5 rounded-2xl shadow-md flex items-center justify-center gap-2 text-sm transition-all cursor-pointer"
         >
-          <span>Launch Analog Search</span>
+          <span>Open Advanced Discovery Tab -&gt;</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </aside>
@@ -671,7 +673,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </div>
 
           {/* Overlaid Floating HUD Card: Cross-Section Profile */}
-          <div className="absolute bottom-3 right-3 z-10 bg-[#FFFFFF]/95 backdrop-blur-sm rounded-2xl border border-[#414943]/10 shadow-soft-card p-2.5 sm:p-3 w-56 sm:w-60">
+          <div className="absolute bottom-4 right-4 z-10 bg-[#FFFFFF]/95 backdrop-blur-sm rounded-2xl border border-[#414943]/10 shadow-soft-card p-2.5 sm:p-3 w-56 sm:w-60">
             <div className="flex items-center justify-between text-[11px] font-semibold text-[#1D1B17] mb-1">
               <span className="truncate max-w-[130px]">
                 Cross-Section ({activeBody === 'earth' ? selectedSite.name.split(' (')[0] : activeTarget.name})
@@ -859,7 +861,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             className="w-full mb-3 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#184633] px-3 py-2.5 text-xs font-bold text-white transition-colors hover:bg-[#0F422E] disabled:cursor-wait disabled:opacity-60"
           >
             <Orbit className={`w-3.5 h-3.5 ${isFetchingAnalogs ? 'animate-spin' : ''}`} />
-            {isFetchingAnalogs ? 'Fetching Earth Analogs…' : 'Fetch Earth Analogs'}
+            {isFetchingAnalogs ? 'Fetching Earth Analogs…' : 'Run Initial Database Scan'}
           </button>
 
           {analogError && (
@@ -870,9 +872,6 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
           <div className="flex flex-col gap-2">
             {earthAnalogs.map((analog, idx) => {
-              const displayName = analog.location_name.includes('Antarctic Grid')
-                ? realAntarcticNames[idx]
-                : analog.location_name;
               const score = calculateTemperatureMatchPercentage(
                 analog.min_temp_c,
               );
@@ -888,7 +887,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   className="p-2.5 rounded-2xl border border-[#414943]/8 bg-[#F9F3EB] transition-all hover:border-[#184633]/30"
                 >
                   <div className="flex items-center justify-between text-xs font-bold text-[#1D1B17]">
-                    <span className="truncate max-w-[200px]">{displayName}</span>
+                    <span className="truncate max-w-[200px]">
+                      {formatLocationName(analog.location_name, analog.lat, analog.lng)}
+                    </span>
                     <span className={`px-2 py-0.5 rounded-full font-mono text-[10px] font-bold ${badgeColor}`}>
                       {score.toFixed(1)}% Match
                     </span>
@@ -906,11 +907,6 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 </div>
               );
             })}
-            {earthAnalogs.length === 0 && !isFetchingAnalogs && (
-              <p className="rounded-2xl border border-dashed border-[#414943]/15 bg-[#F9F3EB] px-3 py-4 text-center text-[10px] text-[#696156]">
-                Fetch the live Supabase-ranked analog set to populate this panel.
-              </p>
-            )}
           </div>
 
           <button

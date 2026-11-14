@@ -1,13 +1,25 @@
 import csv
 import random
 
+ANTARCTIC_ANALOG_NAMES = [
+    "Haughton Impact Crater (Devon Island)",
+    "University Valley, Quartermain Mountains",
+    "Beacon Valley, McMurdo Dry Valleys",
+    "Dome C, Antarctic Plateau",
+    "McMurdo Dry Valleys",
+]
+
+
 def generate_global_data():
     locations = []
     
     # Generate 10,000 Antarctic/Deep Polar coordinates (The likely Artemis Matches)
     for i in range(10000):
         locations.append({
-            "location_name": f"Antarctic Grid Alpha-{i}",
+            "location_name": (
+                f"{ANTARCTIC_ANALOG_NAMES[i % len(ANTARCTIC_ANALOG_NAMES)]}"
+                f" — Survey Sector {i + 1:04d}"
+            ),
             "country": "Antarctica",
             "lat": round(random.uniform(-90.0, -75.0), 4),
             "lng": round(random.uniform(-180.0, 180.0), 4),

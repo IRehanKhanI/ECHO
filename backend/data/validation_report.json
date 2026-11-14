@@ -1,0 +1,19 @@
+{
+  "source_rows": 1000,
+  "validated_rows": 1000,
+  "benchmark_rows": 987,
+  "removed_outliers": 13,
+  "preprocessing": {
+    "outlier_rule": "IQR bounds at 1.5 * IQR",
+    "scaler": "RobustScaler",
+    "features": [
+      "sulfur_ppm",
+      "exposure_days"
+    ]
+  },
+  "benchmark": {
+    "holdout_r2_percent": 93.39,
+    "five_fold_cv_r2_percent": 92.6,
+    "rmse_mg_cm2": 0.0494
+  }
+}

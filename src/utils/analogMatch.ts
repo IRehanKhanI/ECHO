@@ -4,6 +4,18 @@ const LUNAR_TARGET_MIN_TEMPERATURE_C = -203;
 const MAX_TEMPERATURE_PENALTY = 35;
 const TEMPERATURE_PENALTY_EXPONENT = 5;
 
+export function formatLocationName(
+  name: string,
+  _lat: number,
+  _lon: number,
+): string {
+  if (name.includes('Antarctic Grid')) {
+    return `McMurdo Sector: ${name.replace('Antarctic Grid ', 'Outpost ')}`;
+  }
+
+  return name;
+}
+
 export function calculateTemperatureMatchPercentage(
   analogTemperatureC: number,
 ): number {

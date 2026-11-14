@@ -26,11 +26,24 @@ import {
   DimensionKey,
   DimensionWeights,
   EarthCandidateSite,
+  EarthAnalogResult,
   ObjectiveProfile,
   PlanetaryTarget,
   ScoredCandidate,
 } from '../../types/terra';
+import {
+  calculateTemperatureMatchPercentage,
+  formatLocationName,
+} from '../../utils/analogMatch';
 import { PlanetaryGlobe3D } from '../three/PlanetaryGlobe3D';
+import {
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+} from 'recharts';
 
 interface DiscoveryViewProps {
   activeTarget: PlanetaryTarget;
@@ -48,6 +61,7 @@ interface DiscoveryViewProps {
   selectedSite: EarthCandidateSite;
   onSelectSite: (siteId: string) => void;
   onOpenCalendar: () => void;
+  analogResults: EarthAnalogResult[] | null;
 }
 
 export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
@@ -66,9 +80,33 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
   selectedSite,
   onSelectSite,
   onOpenCalendar,
+  analogResults,
 }) => {
   const [centerMode, setCenterMode] = useState<'globe' | 'datum'>('datum');
   const [autoRotate, setAutoRotate] = useState(false);
+  const topAnalog = analogResults?.[0] ?? null;
+  const dynamicAnalogs = analogResults?.slice(0, 3) ?? [];
+  const radarData = useMemo(() => {
+    const thermalScore = topAnalog
+      ? calculateTemperatureMatchPercentage(topAnalog.min_temp_c)
+      : 0;
+    const slopeScore = topAnalog
+      ? Math.max(
+          0,
+          100 -
+            (Math.abs(topAnalog.slope_deg - activeTarget.meanSlopeDeg) /
+              Math.max(activeTarget.meanSlopeDeg, 1)) *
+              100,
+        )
+      : 0;
+
+    return [
+      { criterion: 'Thermal Amplitude', lunarTarget: 100, earthAnalog: thermalScore },
+      { criterion: 'Diurnal Ratio', lunarTarget: 100, earthAnalog: thermalScore },
+      { criterion: 'Slope & Rugosity', lunarTarget: 100, earthAnalog: slopeScore },
+      { criterion: 'Solar Grazing', lunarTarget: 100, earthAnalog: thermalScore },
+    ];
+  }, [activeTarget.meanSlopeDeg, topAnalog]);
 
   const selectedScored = useMemo(
     () =>
@@ -78,7 +116,9 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
   );
 
   // Match percentage calculation for prime candidate
-  const globalScore = Math.round(selectedScored?.bestMonthScore || 84);
+  const globalScore = topAnalog
+    ? Math.round(calculateTemperatureMatchPercentage(topAnalog.min_temp_c))
+    : 0;
 
   // Circular progress stroke calculation (radius = 32, circumference = 2 * PI * 32 = 201)
   const radius = 32;
@@ -424,21 +464,20 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
               <PlanetaryGlobe3D
                 body="earth"
                 layerId="srtm_slope"
-                pins={EARTH_CANDIDATE_SITES.map((s) => {
+                pins={dynamicAnalogs.map((analog, idx) => {
                   const score = Math.round(
-                    rankedCandidates.find((c) => c.site.id === s.id)?.bestMonthScore || 75,
+                    calculateTemperatureMatchPercentage(analog.min_temp_c),
                   );
                   return {
-                    id: s.id,
-                    label: s.name.split(' (')[0],
-                    lat: s.lat,
-                    lon: s.lon,
-                    accent: s.id === selectedSite.id ? 'terracotta' : s.isCatalogKnown ? 'moss' : 'amber',
-                    active: s.id === selectedSite.id,
+                    id: String(analog.id),
+                    label: formatLocationName(analog.location_name, analog.lat, analog.lng),
+                    lat: analog.lat,
+                    lon: analog.lng,
+                    accent: idx === 0 ? 'terracotta' : 'moss',
+                    active: idx === 0,
                     scoreBadge: `${score}%`,
                   };
                 })}
-                onPinClick={onSelectSite}
                 autoRotate={autoRotate}
                 layerOpacity={0.9}
                 focusLat={selectedSite.lat}
@@ -447,7 +486,52 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
                 themeSurface="studio-light"
               />
             ) : (
-              <div className="relative w-full max-w-[420px] aspect-square flex items-center justify-center">
+              <>
+              <div className="w-full max-w-[520px] h-[320px] flex items-center justify-center">
+                {topAnalog ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart
+                      data={radarData}
+                      outerRadius="72%"
+                      cx="50%"
+                      cy="50%"
+                    >
+                      <PolarGrid stroke="#475569" strokeOpacity={0.65} />
+                      <PolarAngleAxis
+                        dataKey="criterion"
+                        tick={{ fill: '#94A3B8', fontSize: 10 }}
+                      />
+                      <PolarRadiusAxis
+                        angle={90}
+                        domain={[0, 100]}
+                        tick={{ fill: '#64748B', fontSize: 9 }}
+                        axisLine={false}
+                      />
+                      <Radar
+                        name="Lunar Target"
+                        dataKey="lunarTarget"
+                        stroke="#E06A3B"
+                        fill="transparent"
+                        fillOpacity={0}
+                        strokeWidth={2}
+                      />
+                      <Radar
+                        name="Earth Analog"
+                        dataKey="earthAnalog"
+                        stroke="#184633"
+                        fill="#184633"
+                        fillOpacity={0.5}
+                        strokeWidth={2}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-[#414943]/15 bg-[#F9F3EB] px-5 py-8 text-center text-sm text-[#696156]">
+                    Run an analog search from the 3D Overview to compare the Lunar Target with an Earth Analog.
+                  </div>
+                )}
+              </div>
+              <div className="hidden">
                 <svg viewBox="0 0 400 400" className="w-full h-full drop-shadow-sm overflow-visible">
                   {/* Concentric Elevation / Polar Rings */}
                   <circle cx="200" cy="200" r="180" fill="#F6F1E8" stroke="#E5DCCE" strokeWidth="2" />
@@ -544,6 +628,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
                   <circle cx="200" cy="200" r="7" fill="none" stroke="#184633" strokeWidth="1" />
                 </svg>
               </div>
+              </>
             )}
           </div>
 
@@ -558,7 +643,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
                 Inspection Focus: {selectedSite.region}
               </span>
             </div>
-            <div className="h-2 w-full rounded-full bg-gradient-to-r from-[#184633] via-[#E69A28] to-[#E06A3B]" />
+            <div className="h-2 w-full rounded-full bg-gradient-to-r from-blue-500 via-[#E69A28] to-red-500 shadow-inner" />
             <div className="flex items-center justify-between font-mono text-[10px] text-[#696156] mt-1">
               <span>Depression (-500m)</span>
               <span>Plateau Base</span>
@@ -592,9 +677,9 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
           </div>
 
           {/* 3 Plots in Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Plot 1: Elevation Relief */}
-            <div className="p-3 rounded-2xl bg-[#F9F3EB] border border-[#414943]/6">
+            <div className="p-4 rounded-2xl bg-[#F9F3EB] border border-[#414943]/6">
               <div className="flex items-center justify-between text-xs font-semibold mb-2">
                 <span className="text-[#1D1B17]">Elevation Relief (Δz)</span>
                 <span className="font-mono text-[11px] text-[#184633]">
@@ -626,7 +711,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
             </div>
 
             {/* Plot 2: Diurnal Temperature Wave */}
-            <div className="p-3 rounded-2xl bg-[#F9F3EB] border border-[#414943]/6">
+            <div className="p-4 rounded-2xl bg-[#F9F3EB] border border-[#414943]/6">
               <div className="flex items-center justify-between text-xs font-semibold mb-2">
                 <span className="text-[#1D1B17]">Diurnal ΔT Amplitude</span>
                 <span className="font-mono text-[11px] text-[#E06A3B]">
@@ -658,7 +743,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
             </div>
 
             {/* Plot 3: Slope Rugosity Bins */}
-            <div className="p-3 rounded-2xl bg-[#F9F3EB] border border-[#414943]/6">
+            <div className="p-4 rounded-2xl bg-[#F9F3EB] border border-[#414943]/6">
               <div className="flex items-center justify-between text-xs font-semibold mb-2">
                 <span className="text-[#1D1B17]">Slope Distribution</span>
                 <span className="font-mono text-[11px] text-[#0F422E]">
@@ -702,45 +787,56 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between">
           <span className="px-2.5 py-0.5 rounded-full bg-[#FFF2EB] border border-[#FFDBCF] text-[10px] font-bold text-[#E06A3B]">
-            PRIME MATCH #{Math.max(1, rankedCandidates.findIndex((c) => c.site.id === selectedSite.id) + 1)}
+            {topAnalog ? 'PRIME MATCH #1' : 'NO ANALOG DATA'}
           </span>
           <span className="text-xs font-semibold text-[#696156]">
             Candidate Report
           </span>
         </div>
 
-        <div>
-          <h3 className="font-display text-2xl font-bold tracking-tight text-[#1D1B17]">
-            {selectedSite.name.split(' (')[0]}
-          </h3>
-          <p className="text-xs text-[#696156] mt-0.5">
-            {selectedSite.region} • {selectedSite.country}
-          </p>
-        </div>
+        {topAnalog ? (
+          <div>
+            <h3 className="font-display text-2xl font-bold tracking-tight text-[#1D1B17]">
+              {formatLocationName(topAnalog.location_name, topAnalog.lat, topAnalog.lng)}
+            </h3>
+            <p className="text-xs text-[#696156] mt-0.5">
+              {topAnalog.country} • Database-ranked Earth analog
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-[#414943]/15 bg-[#F9F3EB] px-4 py-6 text-center">
+            <p className="text-sm font-medium text-[#696156]">
+              No analog data found. Please run a search from the 3D Overview tab.
+            </p>
+          </div>
+        )}
 
         {/* Metadata lines */}
+        {topAnalog && (
         <div className="border-y border-[#414943]/8 py-3 space-y-1.5 text-xs">
           <div className="flex items-center justify-between">
             <span className="text-[#696156]">Coordinates:</span>
             <span className="font-mono font-medium text-[#1D1B17]">
-              {selectedSite.coordinates}
+              {topAnalog.lat.toFixed(2)}°, {topAnalog.lng.toFixed(2)}°
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[#696156]">Elevation:</span>
+            <span className="text-[#696156]">Minimum Temperature:</span>
             <span className="font-mono font-medium text-[#1D1B17]">
-              {selectedSite.elevationM.toLocaleString()} m altitude
+              {topAnalog.min_temp_c.toFixed(1)}°C
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[#696156]">Biome Character:</span>
+            <span className="text-[#696156]">Match Percentage:</span>
             <span className="font-semibold text-[#1D1B17]">
-              {selectedSite.biomeCharacter}
+              {globalScore}%
             </span>
           </div>
         </div>
+        )}
 
         {/* GLOBAL FIDELITY box */}
+        {topAnalog && (
         <div className="p-4 rounded-2xl bg-[#F9F3EB] border border-[#414943]/6 flex items-center justify-between">
           <div>
             <div className="text-[11px] font-semibold text-[#696156] uppercase tracking-[0.06em]">
@@ -782,6 +878,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
             </div>
           </div>
         </div>
+        )}
 
         {/* DIMENSION OVERLAP Progress Bars */}
         <div className="space-y-2.5">
@@ -814,17 +911,17 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
         </div>
 
         {/* Physical Analogy Boundaries Callout (Mandatory Failure Lab Callout) */}
-        <div className="bg-[#FFF5ED] border border-[#FFDBCF] rounded-2xl p-4">
+        <div className="bg-[#FFF5ED] border border-[#FFDBCF] rounded-2xl p-5">
           <div className="flex items-center gap-1.5 text-xs font-bold text-[#E06A3B] mb-1">
             <span>ⓘ</span>
             <span>Physical Analogy Boundaries ({activeTarget.body === 'mars' ? 'Mars' : 'Lunar'})</span>
           </div>
-          <p className="text-[11px] text-[#696156] leading-snug mb-2">
+          <p className="text-[11px] text-[#696156] leading-relaxed mb-2">
             Real-world terrestrial limits to bear in mind before mission planning:
           </p>
-          <ul className="text-[11px] text-[#414943] space-y-1.5 leading-tight">
+          <ul className="text-[11px] text-[#414943] leading-relaxed">
             {MANDATORY_BREAKDOWN_ITEMS[activeTarget.body === 'mars' ? 'mars' : 'moon'].map((item) => (
-              <li key={item.pillar}>
+              <li key={item.pillar} className="mb-2 last:mb-0">
                 • <strong>{item.pillar}:</strong> {item.earthValue} Earth vs {item.targetValue} ({item.gapFactor}).
               </li>
             ))}

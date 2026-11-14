@@ -2,10 +2,12 @@ import React from 'react';
 import { Orbit, SlidersHorizontal, Sparkles, Sun } from 'lucide-react';
 import {
   EarthCandidateSite,
+  EarthAnalogResult,
   ObjectiveProfile,
   PlanetaryTarget,
   WorkspaceView,
 } from '../../types/terra';
+import { formatLocationName } from '../../utils/analogMatch';
 
 interface TelemetryStripProps {
   target: PlanetaryTarget;
@@ -13,6 +15,7 @@ interface TelemetryStripProps {
   objective: ObjectiveProfile;
   noveltyOnly: boolean;
   activeView?: WorkspaceView;
+  analogResults?: EarthAnalogResult[] | null;
 }
 
 export const TelemetryStrip: React.FC<TelemetryStripProps> = ({
@@ -21,6 +24,7 @@ export const TelemetryStrip: React.FC<TelemetryStripProps> = ({
   objective,
   noveltyOnly,
   activeView = 'overview',
+  analogResults,
 }) => {
   return (
     <div className="no-print max-w-[1640px] w-full mx-auto px-4 sm:px-6 pb-3 shrink-0">
@@ -126,7 +130,16 @@ export const TelemetryStrip: React.FC<TelemetryStripProps> = ({
 
             <div className="flex items-center gap-2 shrink-0">
               <span className="px-2.5 py-0.5 rounded-full bg-[#F9F3EB] border border-[#414943]/10 font-mono text-xs text-[#1D1B17]">
-                Selected Analog: <strong>{selectedSite.name.split(' (')[0]}</strong>
+                Selected Analog:{' '}
+                <strong>
+                  {analogResults?.[0]
+                    ? formatLocationName(
+                        analogResults[0].location_name,
+                        analogResults[0].lat,
+                        analogResults[0].lng,
+                      ).split(' (')[0]
+                    : selectedSite.name.split(' (')[0]}
+                </strong>
               </span>
               {noveltyOnly && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#FFF2EB] border border-[#FFDBCF] text-[#E06A3B] font-semibold text-xs">

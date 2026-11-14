@@ -6,6 +6,16 @@ import {
   Play,
   RotateCcw,
 } from 'lucide-react';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { MANDATORY_BREAKDOWN_ITEMS } from '../../data/planetaryData';
 import {
   analyzeRoverTraverse,
@@ -21,6 +31,32 @@ interface VirtualLabViewProps {
   activeTarget: PlanetaryTarget;
   selectedSite: EarthCandidateSite;
   onLaunchSimulator: () => void;
+}
+
+const CORROSION_ENVIRONMENTS = [
+  { label: 'Lunar: Malapert Massif (510 ppm)', sulfurPpm: 510 },
+  { label: 'Earth: Stillwater Complex (890 ppm)', sulfurPpm: 890 },
+  { label: 'Earth: Craters of the Moon (640 ppm)', sulfurPpm: 640 },
+];
+const LUNAR_TARGET_SULFUR_PPM = 420;
+
+function calculateBaselineWear(sulfurPpm: number, days: number) {
+  return (
+    0.015 *
+    Math.pow(sulfurPpm / 500, 1.15) *
+    Math.pow(Math.max(days, 0) / 30, 0.78)
+  );
+}
+
+function generateWearProjection(lunarPpm: number, earthPpm: number) {
+  return Array.from({ length: 50 }, (_, index) => {
+    const day = Math.round((index / 49) * 1000);
+    return {
+      day,
+      lunarWear: calculateBaselineWear(lunarPpm, day),
+      earthWear: calculateBaselineWear(earthPpm, day),
+    };
+  });
 }
 
 const DEFAULT_PRESETS: Record<string, TraverseWaypoint[]> = {
@@ -59,9 +95,19 @@ export const VirtualLabView: React.FC<VirtualLabViewProps> = ({
   const [abrasiveStress, setAbrasiveStress] = useState(true);
   const [roverProgress, setRoverProgress] = useState(0.54);
   const [animating, setAnimating] = useState(false);
+  const [sulfurPpm, setSulfurPpm] = useState(510);
+  const [exposureDays, setExposureDays] = useState(365);
+  const [predictedDegradation, setPredictedDegradation] = useState<number | null>(
+    null,
+  );
+  const [simulationError, setSimulationError] = useState<string | null>(null);
 
   const earthCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const targetCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const wearProjection = useMemo(
+    () => generateWearProjection(LUNAR_TARGET_SULFUR_PPM, sulfurPpm),
+    [sulfurPpm],
+  );
 
   const analysis = useMemo(
     () =>
@@ -82,6 +128,47 @@ export const VirtualLabView: React.FC<VirtualLabViewProps> = ({
     }, 50);
     return () => clearInterval(id);
   }, [animating]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const simulateWear = async () => {
+      setSimulationError(null);
+      try {
+        const response = await fetch(
+          'http://127.0.0.1:8000/api/simulate-wear/',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sulfur_ppm: sulfurPpm,
+              exposure_days: exposureDays,
+            }),
+            signal: controller.signal,
+          },
+        );
+        const payload = (await response.json()) as {
+          predicted_degradation_mg_cm2?: number;
+          error?: string;
+        };
+        if (!response.ok || payload.predicted_degradation_mg_cm2 === undefined) {
+          throw new Error(payload.error || `Backend returned ${response.status}`);
+        }
+        setPredictedDegradation(payload.predicted_degradation_mg_cm2);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setPredictedDegradation(null);
+        setSimulationError(
+          error instanceof Error
+            ? error.message
+            : 'Unable to run the corrosion simulation.',
+        );
+      }
+    };
+
+    void simulateWear();
+    return () => controller.abort();
+  }, [sulfurPpm, exposureDays]);
 
   const renderTerrainMap = (
     canvas: HTMLCanvasElement | null,
@@ -374,6 +461,185 @@ export const VirtualLabView: React.FC<VirtualLabViewProps> = ({
             <span>{animating ? 'Pause Sim' : 'Run Sim'}</span>
           </button>
         </div>
+      </section>
+
+      <section className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <span className="px-2.5 py-0.5 rounded-full bg-[#FDF2EC] text-[#A33E11] font-mono text-[11px] font-semibold">
+              SULFUR-CORROSION SIMULATOR
+            </span>
+            <h2 className="mt-2 font-display text-xl font-bold text-[#1D1B17]">
+              Material Wear Projection
+            </h2>
+            <p className="mt-1 text-xs text-[#696156]">
+              Random Forest estimate trained on the supplied NASA benchmark dataset.
+            </p>
+          </div>
+          <div className="rounded-2xl bg-[#F9F3EB] border border-[#414943]/8 px-5 py-3 text-right min-w-[220px]">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-[#696156]">
+              PREDICTED DEGRADATION
+            </div>
+            <div className="mt-1 font-display text-2xl font-bold text-[#A33E11] tabular-nums">
+              {predictedDegradation === null
+                ? '—'
+                : `${predictedDegradation.toFixed(4)} mg/cm²`}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+          <label className="text-xs font-semibold text-[#414943]">
+            Test Environment
+            <select
+              value={sulfurPpm}
+              onChange={(event) => setSulfurPpm(Number(event.target.value))}
+              className="mt-2 w-full rounded-2xl border border-[#414943]/15 bg-[#F9F3EB] px-3 py-2.5 text-xs font-medium text-[#1D1B17] outline-none focus:border-[#184633]"
+            >
+              {CORROSION_ENVIRONMENTS.map((environment) => (
+                <option
+                  key={environment.sulfurPpm}
+                  value={environment.sulfurPpm}
+                >
+                  {environment.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="text-xs font-semibold text-[#414943]">
+            Mission Timeline Scrubber
+            <span className="float-right font-mono text-[#A33E11]">
+              {exposureDays} days
+            </span>
+            <input
+              type="range"
+              min={1}
+              max={1000}
+              value={exposureDays}
+              onChange={(event) => setExposureDays(Number(event.target.value))}
+              className="terra-slider mt-4 w-full"
+              aria-label="Exposure duration in days"
+            />
+            <span className="mt-1 flex justify-between text-[10px] font-normal text-[#696156]">
+              <span>1 day</span>
+              <span>1000 days</span>
+            </span>
+          </label>
+        </div>
+
+        <div className="mt-6 rounded-2xl bg-[#F9F3EB] p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="font-display text-sm font-bold text-[#1D1B17]">
+                Comparative Material Wear Projection
+              </h3>
+              <p className="font-mono text-[10px] text-[#696156]">
+                Baseline physics projection · 0–1000 days
+              </p>
+            </div>
+            <div className="flex items-center gap-3 font-mono text-[10px]">
+              <span className="inline-flex items-center gap-1.5 text-[#A33E11]">
+                <span className="h-2 w-2 rounded-full bg-[#f97316]" />
+                Lunar Target · {LUNAR_TARGET_SULFUR_PPM} ppm
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-[#166534]">
+                <span className="h-2 w-2 rounded-full bg-[#166534]" />
+                Earth Analog · {sulfurPpm} ppm
+              </span>
+            </div>
+          </div>
+          <div className="h-[280px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={wearProjection} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="lunarWearGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f97316" stopOpacity={0.6} />
+                    <stop offset="100%" stopColor="#f97316" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="earthWearGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#166534" stopOpacity={0.6} />
+                    <stop offset="100%" stopColor="#166534" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" strokeOpacity={0.7} />
+                <XAxis
+                  dataKey="day"
+                  ticks={[0, 200, 400, 600, 800, 1000]}
+                  tick={{ fill: '#696156', fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={{ stroke: '#cbd5e1', strokeOpacity: 0.7 }}
+                  label={{ value: 'Mission Days', position: 'insideBottom', offset: -2, fill: '#696156', fontSize: 10 }}
+                />
+                <YAxis
+                  tick={{ fill: '#696156', fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value: number) => value.toFixed(2)}
+                  label={{ value: 'mg/cm²', angle: -90, position: 'insideLeft', fill: '#696156', fontSize: 10 }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#1D1B17',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#FFFFFF',
+                    fontSize: '10px',
+                  }}
+                  labelFormatter={(day) => `Day ${day}`}
+                  formatter={(value, name) => [
+                    `${Number(value).toFixed(4)} mg/cm²`,
+                    name === 'lunarWear' ? 'Lunar Target' : 'Earth Analog',
+                  ]}
+                />
+                <ReferenceLine
+                  y={0.15}
+                  stroke="#DC2626"
+                  strokeDasharray="6 4"
+                  label={{
+                    value: 'Critical Wear Threshold (0.15 mg/cm²)',
+                    fill: '#DC2626',
+                    fontSize: 10,
+                    position: 'insideTopRight',
+                  }}
+                />
+                <ReferenceLine
+                  x={exposureDays}
+                  stroke="#1D1B17"
+                  strokeDasharray="3 3"
+                  label={{
+                    value: `Day ${exposureDays}`,
+                    fill: '#1D1B17',
+                    fontSize: 10,
+                    position: 'insideTopLeft',
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="lunarWear"
+                  stroke="#f97316"
+                  fill="url(#lunarWearGradient)"
+                  strokeWidth={2}
+                  isAnimationActive={false}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="earthWear"
+                  stroke="#166534"
+                  fill="url(#earthWearGradient)"
+                  strokeWidth={2}
+                  isAnimationActive={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {simulationError && (
+          <p className="mt-4 rounded-xl border border-[#FFDBCF] bg-[#FDF2EC] px-3 py-2 text-[10px] font-medium text-[#A33E11]">
+            {simulationError}
+          </p>
+        )}
       </section>
 
       {/* 3-COLUMN VIRTUAL LAB GRID */}

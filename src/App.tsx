@@ -143,6 +143,7 @@ export default function App() {
         objective={activeObjective}
         noveltyOnly={noveltyOnly}
         activeView={activeView}
+        analogResults={analogResults}
       />
 
       <main className="max-w-[1640px] w-full mx-auto px-4 sm:px-6 pb-8 flex-1">
@@ -184,6 +185,7 @@ export default function App() {
             selectedSite={selectedSite}
             onSelectSite={setSelectedSiteId}
             onOpenCalendar={() => setActiveView('calendar')}
+            analogResults={analogResults}
           />
         )}
 
@@ -199,6 +201,7 @@ export default function App() {
             thresholdPct={thresholdPct}
             onChangeThreshold={setThresholdPct}
             onLaunchLab={() => setActiveView('lab')}
+            analogResults={analogResults}
           />
         )}
 
@@ -213,8 +216,8 @@ export default function App() {
         {activeView === 'cad' && (
           <SimulatorView
             selectedSite={selectedSite}
-            onSelectSite={setSelectedSiteId}
             onOpenReports={() => setActiveView('reports')}
+            analogResults={analogResults}
           />
         )}
 

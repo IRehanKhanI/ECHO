@@ -4,9 +4,6 @@ import { Html, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 
 const SOUTH_POLE_LATITUDE = -90;
-const GRAZING_SUN_ELEVATION_DEGREES = 1.88;
-const GRAZING_SUN_ELEVATION_RADIANS =
-  (GRAZING_SUN_ELEVATION_DEGREES * Math.PI) / 180;
 
 function LunarTerrainMesh() {
   const [showData, setShowData] = useState(false);
@@ -99,8 +96,6 @@ interface LunarSouthPoleTerrainProps {
 export function LunarSouthPoleTerrain({
   className = 'h-full w-full',
 }: LunarSouthPoleTerrainProps) {
-  const lightDistance = 4;
-
   return (
     <div className={className}>
       <Canvas
@@ -124,11 +119,7 @@ export function LunarSouthPoleTerrain({
           castShadow
           intensity={2.5}
           color="#fff4d6"
-          position={[
-            lightDistance * Math.cos(GRAZING_SUN_ELEVATION_RADIANS),
-            lightDistance * Math.sin(GRAZING_SUN_ELEVATION_RADIANS),
-            0.35,
-          ]}
+          position={[15, 5, 2]}
           shadow-mapSize={[2048, 2048]}
           shadow-camera-near={0.1}
           shadow-camera-far={10}
