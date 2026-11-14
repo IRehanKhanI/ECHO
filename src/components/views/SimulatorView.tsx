@@ -151,13 +151,13 @@ export const SimulatorView: React.FC<SimulatorViewProps> = ({
         <div>
           <div className="flex flex-wrap items-center gap-2 mb-1.5">
             <span className="px-2.5 py-0.5 rounded-full bg-[#EAF4EE] text-[#0F422E] font-mono text-[11px] font-semibold">
-              FR-05 DIGITAL TWIN CAD
+              DIGITAL TWIN CAD
             </span>
             <span className="font-mono text-[11px] text-[#A33E11] font-semibold">
-              ASSEMBLY: TX-DRL-40
+              TX-DRL-40
             </span>
             <span className="text-[11px] text-[#696156]">
-              · Coupled Thermo-Chemical Fatigue Solver
+              · Coupled Thermo-Mechanical Fatigue
             </span>
           </div>
           <h1 className="font-display text-2xl font-bold text-[#1D1B17]">
@@ -543,7 +543,7 @@ export const SimulatorView: React.FC<SimulatorViewProps> = ({
                 [
                   { id: 'dashboard', label: 'Dashboard' },
                   { id: 'procedures', label: 'Procedures' },
-                  { id: 'documents', label: 'Specs' },
+                  { id: 'documents', label: 'Documents' },
                   { id: 'parts', label: exploded ? 'Parts (Exploded)' : 'Parts' },
                   { id: 'section', label: sectionMode ? 'Section (On)' : 'Section' },
                 ] as { id: DockMode; label: string }[]
@@ -568,6 +568,9 @@ export const SimulatorView: React.FC<SimulatorViewProps> = ({
                     )}
                     {d.id === 'procedures' && (
                       <Wrench className="w-3 h-3 inline mr-1 -mt-0.5" />
+                    )}
+                    {d.id === 'documents' && (
+                      <BookOpen className="w-3 h-3 inline mr-1 -mt-0.5" />
                     )}
                     {d.label}
                   </button>
@@ -781,33 +784,47 @@ export const SimulatorView: React.FC<SimulatorViewProps> = ({
             <div className="font-semibold text-[#0F422E] mb-1">
               Redesign Protocol (Mitigation)
             </div>
-            <p className="text-[11px] text-[#0F422E]/90 leading-relaxed">
-              Specify Braycote 601EF PFPE grease, Ti-6Al-4V Belleville torque
-              washers (14.2 N·m), and DLC tungsten-carbide flute coatings.
+            <p className="text-[11px] text-[#0F422E]/90 leading-relaxed font-mono">
+              Ti-6Al-4V Belleville torque washers (14.2 N·m) · Braycote 601EF PFPE grease · DLC flute coating
             </p>
           </div>
 
+          {dockMode === 'procedures' && (
+            <div className="p-3.5 rounded-2xl bg-[#EAF4EE] border border-[#2A5A44]/20 text-xs">
+              <div className="font-semibold text-[#0F422E] mb-1.5 flex items-center gap-1.5">
+                <Wrench className="w-3.5 h-3.5" />
+                <span>Field Maintenance Protocol</span>
+              </div>
+              <ul className="text-[11px] text-[#414943] space-y-1 font-mono">
+                <li>• Pre-test torque check: 14.2 N·m on Ti fasteners</li>
+                <li>• Regolith purge cycle every 48 hours</li>
+                <li>• PFPE lubricant recharge at 120 hr interval</li>
+              </ul>
+            </div>
+          )}
+
           {dockMode === 'documents' && (
             <div className="p-3 rounded-2xl bg-[#F9F3EB] border border-[#414943]/10 text-xs">
-              <div className="font-semibold text-[#1D1B17] mb-1.5">
-                Nominal MTBF Across Regimes
+              <div className="font-semibold text-[#1D1B17] mb-1.5 flex items-center gap-1.5">
+                <BookOpen className="w-3.5 h-3.5 text-[#184633]" />
+                <span>Nominal MTBF Across Regimes</span>
               </div>
               <div className="grid grid-cols-3 gap-1.5 font-mono text-[11px]">
                 <div className="p-2 bg-white rounded-xl border border-[#414943]/8 text-center">
                   <div className="text-[9px] text-[#696156]">EARTH</div>
-                  <div className="font-bold">
+                  <div className="font-bold text-[#1D1B17]">
                     {activePartState.part.nominalLifeYears.earth_analog} yr
                   </div>
                 </div>
                 <div className="p-2 bg-white rounded-xl border border-[#414943]/8 text-center">
                   <div className="text-[9px] text-[#696156]">MOON</div>
-                  <div className="font-bold">
+                  <div className="font-bold text-[#A33E11]">
                     {activePartState.part.nominalLifeYears.moon_south_pole} yr
                   </div>
                 </div>
                 <div className="p-2 bg-white rounded-xl border border-[#414943]/8 text-center">
                   <div className="text-[9px] text-[#696156]">MARS</div>
-                  <div className="font-bold">
+                  <div className="font-bold text-[#D9822B]">
                     {activePartState.part.nominalLifeYears.mars_jezero} yr
                   </div>
                 </div>

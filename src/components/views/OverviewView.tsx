@@ -18,6 +18,7 @@ import {
 import {
   DIVINER_SEASONAL_BINS,
   EARTH_CANDIDATE_SITES,
+  MONTH_LABELS,
   OBJECTIVE_PROFILES,
   PLANETARY_TARGETS,
   SCIENTIFIC_LAYERS,
@@ -82,14 +83,20 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
   const globePins: GlobePin[] = useMemo(() => {
     if (activeBody === 'earth') {
-      return EARTH_CANDIDATE_SITES.map((s) => ({
-        id: s.id,
-        label: s.name.split(' (')[0],
-        lat: s.lat,
-        lon: s.lon,
-        accent: s.isCatalogKnown ? 'moss' : 'terracotta',
-        active: s.id === selectedSite.id,
-      }));
+      return EARTH_CANDIDATE_SITES.map((s) => {
+        const score = Math.round(
+          rankedCandidates.find((c) => c.site.id === s.id)?.bestMonthScore || 75,
+        );
+        return {
+          id: s.id,
+          label: s.name.split(' (')[0],
+          lat: s.lat,
+          lon: s.lon,
+          accent: s.id === selectedSite.id ? 'terracotta' : s.isCatalogKnown ? 'moss' : 'amber',
+          active: s.id === selectedSite.id,
+          scoreBadge: `${score}%`,
+        };
+      });
     }
     return PLANETARY_TARGETS.filter((t) => t.body === activeBody).map((t) => ({
       id: t.id,
@@ -98,12 +105,15 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       lon: t.lon,
       accent: t.body === 'moon' ? 'moss' : 'terracotta',
       active: t.id === activeTarget.id,
-      scoreBadge: `${t.elevationM >= 0 ? '+' : ''}${t.elevationM}m`,
+      scoreBadge: `${t.elevationM >= 0 ? '+' : ''}${t.elevationM.toLocaleString()}m`,
     }));
-  }, [activeBody, activeTarget.id, selectedSite.id]);
+  }, [activeBody, activeTarget.id, selectedSite.id, rankedCandidates]);
 
   const crossSectionSvg = useMemo(() => {
-    const vals = activeTarget.crossSectionElevationsM;
+    const vals =
+      activeBody === 'earth'
+        ? selectedSite.transectElevationsM || [0]
+        : activeTarget.crossSectionElevationsM || [0];
     const min = Math.min(...vals);
     const max = Math.max(...vals);
     const span = Math.max(1, max - min);
@@ -120,9 +130,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       min,
       max,
     };
-  }, [activeTarget]);
+  }, [activeBody, activeTarget, selectedSite]);
 
-  // Specific 3 primary objectives featured in Screen 1
+  // Featured field objectives
   const featuredObjectives = [
     {
       id: 'thermal_cold_soak',
@@ -152,57 +162,54 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr_360px] gap-6 items-start">
       {/* ===================== LEFT COLUMN ===================== */}
-      <aside className="flex flex-col gap-5">
+      <aside className="flex flex-col gap-4">
         {/* Card 1: ACTIVE STUDY REGION */}
-        <div className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-5">
-          <div className="flex items-center justify-between mb-2">
+        <div className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-4 sm:p-4.5">
+          <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] font-semibold tracking-[0.08em] uppercase text-[#696156]">
-              Active Study Region
+              {activeBody === 'earth' ? 'Active Terrestrial Analog' : 'Active Study Region'}
             </span>
-            <span className="w-2.5 h-2.5 rounded-full bg-[#E06A3B]" aria-hidden="true" />
+            <span
+              className={`w-2.5 h-2.5 rounded-full ${
+                activeBody === 'earth' ? 'bg-[#184633]' : 'bg-[#E06A3B]'
+              }`}
+              aria-hidden="true"
+            />
           </div>
 
           <h2 className="font-display text-2xl font-bold tracking-tight text-[#1D1B17]">
-            {activeTarget.name.includes('Shackleton')
-              ? 'Shackleton Rim Massif'
+            {activeBody === 'earth'
+              ? selectedSite.name.split(' (')[0]
               : activeTarget.name}
           </h2>
 
           <p className="font-mono text-xs font-semibold text-[#E06A3B] mt-1">
-            {activeTarget.coordinates} • Elevation +{activeTarget.elevationM.toLocaleString()}m
+            {activeBody === 'earth' ? (
+              <>
+                {selectedSite.coordinates} • Elevation +{selectedSite.elevationM.toLocaleString()}m
+              </>
+            ) : (
+              <>
+                {activeTarget.coordinates} • Elevation {activeTarget.elevationM >= 0 ? '+' : ''}{activeTarget.elevationM.toLocaleString()}m
+              </>
+            )}
           </p>
 
-          <p className="text-xs text-[#696156] mt-2.5 leading-relaxed">
-            {activeTarget.summary}
+          <p className="text-xs text-[#696156] mt-2 leading-relaxed">
+            {activeBody === 'earth' ? selectedSite.fieldAccessNotes : activeTarget.summary}
           </p>
-
-          <div className="mt-4 pt-3 border-t border-[#414943]/8 flex items-center justify-between">
-            <span className="text-[11px] text-[#696156] font-medium">Switch Target:</span>
-            <select
-              aria-label="Select reference site"
-              value={activeTarget.id}
-              onChange={(e) => onSelectTarget(e.target.value)}
-              className="bg-[#F9F3EB] border border-[#414943]/10 rounded-xl px-2.5 py-1 text-xs font-medium text-[#1D1B17] focus:outline-none focus:ring-1 focus:ring-[#184633] cursor-pointer"
-            >
-              {PLANETARY_TARGETS.filter((t) => t.body === activeBody).map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
 
         {/* Card 2: PRIMARY FIELD OBJECTIVE */}
-        <div className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-4 sm:p-4.5">
+          <div className="flex items-center justify-between mb-2.5">
             <span className="text-[11px] font-semibold tracking-[0.08em] uppercase text-[#696156]">
               Primary Field Objective
             </span>
             <span className="text-xs font-semibold text-[#696156]">Priority 1</span>
           </div>
 
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-2">
             {featuredObjectives.map((obj) => {
               const isSelected = activeObjective.id === obj.id;
               const Icon = obj.icon;
@@ -211,15 +218,15 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   key={obj.id}
                   type="button"
                   onClick={() => onSelectObjective(obj.id)}
-                  className={`text-left p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 cursor-pointer ${
+                  className={`text-left p-2.5 rounded-2xl border transition-all flex items-center justify-between gap-2.5 cursor-pointer ${
                     isSelected
                       ? 'bg-[#184633] text-[#FFFFFF] border-[#184633] shadow-xs'
                       : 'bg-[#F9F3EB] text-[#1D1B17] border-[#414943]/8 hover:border-[#184633]/40'
                   }`}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <span
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
                         isSelected
                           ? 'bg-[#FFFFFF]/15 text-[#FFFFFF]'
                           : 'bg-[#FFFFFF] text-[#184633] shadow-xs'
@@ -253,22 +260,26 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         </div>
 
         {/* Card 3: SPECTRAL & DEM LAYERS */}
-        <div className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-5 flex flex-col gap-4">
+        <div className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-4 sm:p-4.5 flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold tracking-[0.08em] uppercase text-[#696156]">
               Spectral &amp; DEM Layers
             </span>
-            <span className="px-2 py-0.5 rounded-full bg-[#EAF4EE] text-[11px] font-semibold text-[#0F422E]">
+            <span className="px-2 py-0.5 rounded-full bg-[#EAF4EE] text-[10px] font-semibold text-[#0F422E]">
               2 Active
             </span>
           </div>
 
-          {/* LOLA DEM Slider */}
+          {/* Top Layer Slider */}
           <div>
-            <div className="flex items-center justify-between text-xs mb-1.5">
+            <div className="flex items-center justify-between text-xs mb-1">
               <span className="flex items-center gap-2 font-medium text-[#1D1B17]">
                 <span className="w-2 h-2 rounded-full bg-[#184633]" />
-                LOLA DEM Elevation Mesh
+                {activeBody === 'mars'
+                  ? 'MGS MOLA Topography Mesh'
+                  : activeBody === 'earth'
+                    ? 'Copernicus & SRTM DEM Slope'
+                    : 'LOLA DEM Elevation Mesh'}
               </span>
               <span className="font-mono text-xs font-semibold text-[#184633]">
                 {lolaOpacity}%
@@ -281,16 +292,20 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               value={lolaOpacity}
               onChange={(e) => setLolaOpacity(Number(e.target.value))}
               className="w-full terra-slider"
-              aria-label="LOLA DEM Opacity"
+              aria-label="Topographic DEM Opacity"
             />
           </div>
 
-          {/* Diviner Thermal Slider */}
+          {/* Bottom Layer Slider */}
           <div>
-            <div className="flex items-center justify-between text-xs mb-1.5">
+            <div className="flex items-center justify-between text-xs mb-1">
               <span className="flex items-center gap-2 font-medium text-[#1D1B17]">
                 <span className="w-2 h-2 rounded-full bg-[#E06A3B]" />
-                Diviner Thermal Bolometry
+                {activeBody === 'mars'
+                  ? 'Odyssey THEMIS Thermal Inertia'
+                  : activeBody === 'earth'
+                    ? 'MODIS / ECOSTRESS Monthly LST'
+                    : 'Diviner Thermal Bolometry'}
               </span>
               <span className="font-mono text-xs font-semibold text-[#E06A3B]">
                 {divinerOpacity}%
@@ -303,21 +318,43 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               value={divinerOpacity}
               onChange={(e) => setDivinerOpacity(Number(e.target.value))}
               className="w-full terra-slider terracotta-thumb"
-              aria-label="Diviner Thermal Opacity"
+              aria-label="Thermal Layer Opacity"
             />
           </div>
 
           {/* Elevation Profile Ramp */}
-          <div className="pt-2">
-            <div className="flex items-center justify-between text-[11px] mb-1.5">
+          <div className="pt-1">
+            <div className="flex items-center justify-between text-[11px] mb-1">
               <span className="text-[#696156] font-medium">Elevation Profile Ramp</span>
-              <span className="font-mono text-[10px] text-[#696156]">Lunar Datum</span>
+              <span className="font-mono text-[10px] text-[#696156]">
+                {activeBody === 'mars'
+                  ? 'Mars Areoid'
+                  : activeBody === 'earth'
+                    ? 'WGS84 Geoid'
+                    : 'Lunar Datum'}
+              </span>
             </div>
             <div className="h-2 w-full rounded-full bg-gradient-to-r from-[#0F422E] via-[#84CC16] via-[#E69A28] to-[#E06A3B]" />
-            <div className="flex items-center justify-between font-mono text-[10px] text-[#696156] mt-1.5">
-              <span>-4,200m (PSR)</span>
-              <span>0m (Mean)</span>
-              <span>+4,300m (Peak)</span>
+            <div className="flex items-center justify-between font-mono text-[10px] text-[#696156] mt-1">
+              {activeBody === 'mars' ? (
+                <>
+                  <span>-5,200m (Basin)</span>
+                  <span>0m (Areoid)</span>
+                  <span>+3,800m (Peak)</span>
+                </>
+              ) : activeBody === 'earth' ? (
+                <>
+                  <span>0m (Sea Level)</span>
+                  <span>+1,800m (Puna)</span>
+                  <span>+5,000m (Summit)</span>
+                </>
+              ) : (
+                <>
+                  <span>-4,200m (PSR)</span>
+                  <span>0m (Mean)</span>
+                  <span>+4,300m (Peak)</span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -326,7 +363,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         <button
           type="button"
           onClick={onLaunchDiscovery}
-          className="w-full bg-[#E06A3B] hover:bg-[#C95528] active:scale-[0.99] text-white font-bold py-3.5 px-6 rounded-2xl shadow-md flex items-center justify-center gap-2 text-sm transition-all cursor-pointer"
+          className="w-full bg-[#E06A3B] hover:bg-[#C95528] active:scale-[0.99] text-white font-bold py-3 px-5 rounded-2xl shadow-md flex items-center justify-center gap-2 text-sm transition-all cursor-pointer"
         >
           <span>Launch Analog Search</span>
           <ArrowRight className="w-4 h-4" />
@@ -334,14 +371,26 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       </aside>
 
       {/* ===================== CENTER COLUMN ===================== */}
-      <section className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-5 sm:p-6 flex flex-col justify-between relative min-h-[660px]">
+      <section className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-4 sm:p-5 flex flex-col justify-between relative min-h-[660px]">
         {/* Top Control Bar inside Center Card */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 z-10">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#F9F3EB] border border-[#414943]/8 font-mono text-xs font-semibold text-[#1D1B17]">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-2 z-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#F9F3EB] border border-[#414943]/8 font-mono text-xs font-semibold text-[#1D1B17]">
             <span className="w-2 h-2 rounded-full bg-[#E06A3B]" />
-            <span>Lunar South Pole 3D</span>
+            <span>
+              {activeBody === 'moon'
+                ? 'Lunar South Pole 3D'
+                : activeBody === 'mars'
+                  ? 'Mars Areocentric 3D'
+                  : 'Earth Geodetic 3D'}
+            </span>
             <span className="text-[#C0C9C1]">|</span>
-            <span className="text-[#696156]">240m GSD</span>
+            <span className="text-[#696156]">
+              {activeBody === 'moon'
+                ? '240m GSD'
+                : activeBody === 'mars'
+                  ? '100m–463m GSD'
+                  : '30m–240m GSD'}
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -396,24 +445,30 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </div>
         </div>
 
-        {/* The Main Stage (3D Globe or Polar Cartographic Projection) */}
-        <div className="relative flex-1 w-full flex items-center justify-center my-2 min-h-[460px] overflow-hidden rounded-2xl bg-[#F8F5EE]">
+        {/* The Main Stage (3D Globe or Cartographic Projection) */}
+        <div className="relative flex-1 w-full flex items-center justify-center min-h-[460px] overflow-hidden">
           {stageMode === 'orbit' ? (
             <PlanetaryGlobe3D
               body={activeBody}
               activeLayerId={activeLayerId}
               pins={globePins}
-              onPinClick={() => {}}
+              onPinClick={(pinId) => {
+                if (activeBody === 'earth') {
+                  onSelectSite(pinId);
+                } else {
+                  onSelectTarget(pinId);
+                }
+              }}
               autoRotate={autoRotate}
               layerOpacity={lolaOpacity / 100}
-              focusLat={activeTarget.lat}
-              focusLon={activeTarget.lon}
+              focusLat={activeBody === 'earth' ? selectedSite.lat : activeTarget.lat}
+              focusLon={activeBody === 'earth' ? selectedSite.lon : activeTarget.lon}
               cameraMode="orbit"
               themeSurface="studio-light"
             />
           ) : (
-            /* Polar Cartographic Projection matching image_f53c2458 */
-            <div className="relative w-full h-full flex items-center justify-center p-4">
+            /* Cartographic 2D Projection */
+            <div className="relative w-full h-full flex items-center justify-center p-2">
               <svg
                 viewBox="0 0 500 500"
                 className="w-full max-w-[460px] max-h-[460px] drop-shadow-sm"
@@ -430,68 +485,138 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
                 {/* Coordinates label */}
                 <text x="250" y="38" textAnchor="middle" fill="#94A3B8" fontSize="9" fontFamily="JetBrains Mono" letterSpacing="0.08em">
-                  0° PRIME MERIDIAN • EARTH FACING
+                  {activeBody === 'moon'
+                    ? '0° PRIME MERIDIAN • LUNAR SOUTH POLE PROJECTION'
+                    : activeBody === 'mars'
+                      ? 'AREOCENTRIC EQUATORIAL DATUM • MGS MOLA'
+                      : 'WGS84 GEODETIC CYLINDRICAL RETICLE • SRTM/COPERNICUS'}
                 </text>
 
-                {/* Shaded Craters */}
-                {/* Faustini Crater */}
-                <circle cx="310" cy="210" r="42" fill="#E8DEC8" stroke="#D3C5AB" strokeWidth="1.5" />
-                <text x="310" y="214" textAnchor="middle" fill="#786B54" fontSize="10" fontFamily="Outfit" fontWeight="600">
-                  FAUSTINI
-                </text>
+                {activeBody === 'moon' ? (
+                  <>
+                    {/* Faustini Crater */}
+                    <circle cx="310" cy="210" r="42" fill="#E8DEC8" stroke="#D3C5AB" strokeWidth="1.5" />
+                    <text x="310" y="214" textAnchor="middle" fill="#786B54" fontSize="10" fontFamily="Outfit" fontWeight="600">
+                      FAUSTINI
+                    </text>
 
-                {/* Shoemaker Crater */}
-                <circle cx="210" cy="285" r="46" fill="#E8DEC8" stroke="#D3C5AB" strokeWidth="1.5" />
-                <text x="210" y="289" textAnchor="middle" fill="#786B54" fontSize="10" fontFamily="Outfit" fontWeight="600">
-                  SHOEMAKER
-                </text>
+                    {/* Shoemaker Crater */}
+                    <circle cx="210" cy="285" r="46" fill="#E8DEC8" stroke="#D3C5AB" strokeWidth="1.5" />
+                    <text x="210" y="289" textAnchor="middle" fill="#786B54" fontSize="10" fontFamily="Outfit" fontWeight="600">
+                      SHOEMAKER
+                    </text>
 
-                {/* Shackleton Crater Core */}
-                <circle cx="250" cy="250" r="26" fill="#184633" stroke="#2A5A44" strokeWidth="2.5" opacity="0.85" />
-                <circle cx="250" cy="250" r="12" fill="#0A2419" />
+                    {/* Shackleton Crater Core */}
+                    <circle cx="250" cy="250" r="26" fill="#184633" stroke="#2A5A44" strokeWidth="2.5" opacity="0.85" />
+                    <circle cx="250" cy="250" r="12" fill="#0A2419" />
 
-                {/* Station Alpha Pin */}
-                <circle cx="264" cy="236" r="6" fill="#E06A3B" />
-                <circle cx="264" cy="236" r="11" fill="none" stroke="#E06A3B" strokeWidth="1.5" opacity="0.6" />
+                    {/* Malapert Massif Ridge */}
+                    <circle cx="250" cy="120" r="32" fill="#EADFCF" stroke="#D3C5AB" strokeWidth="1.2" />
+                    <text x="250" y="124" textAnchor="middle" fill="#786B54" fontSize="9" fontFamily="Outfit" fontWeight="600">
+                      MALAPERT
+                    </text>
 
-                {/* Callout Label Station Alpha */}
-                <g transform="translate(190, 192)">
-                  <rect width="180" height="24" rx="12" fill="#FFFFFF" stroke="#414943" strokeWidth="0.5" strokeOpacity="0.2" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.06))" />
-                  <circle cx="12" cy="12" r="3.5" fill="#E06A3B" />
-                  <text x="22" y="16" fill="#1D1B17" fontSize="10" fontFamily="Outfit" fontWeight="600">
-                    Station Alpha • Shackleton Rim
-                  </text>
-                  <text x="146" y="16" fill="#E06A3B" fontSize="9" fontFamily="JetBrains Mono" fontWeight="600">
-                    +1,240m
-                  </text>
-                </g>
+                    {/* Haworth Crater */}
+                    <circle cx="230" cy="180" r="30" fill="#2A5A44" stroke="#184633" strokeWidth="1.5" opacity="0.75" />
+                    <text x="230" y="184" textAnchor="middle" fill="#BAEED1" fontSize="8" fontFamily="Outfit" fontWeight="600">
+                      HAWORTH PSR
+                    </text>
 
-                {/* Faustini Cold-Trap Pin */}
-                <circle cx="330" cy="245" r="3" fill="#184633" />
-                <text x="338" y="248" fill="#184633" fontSize="9" fontFamily="Inter" fontWeight="500">
-                  • Faustini Cold-Trap
-                </text>
+                    {/* Active Target Callout */}
+                    <g transform="translate(160, 192)">
+                      <rect width="180" height="24" rx="12" fill="#FFFFFF" stroke="#414943" strokeWidth="0.5" strokeOpacity="0.2" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.06))" />
+                      <circle cx="12" cy="12" r="3.5" fill="#E06A3B" />
+                      <text x="22" y="16" fill="#1D1B17" fontSize="10" fontFamily="Outfit" fontWeight="600">
+                        {activeTarget.name.slice(0, 18)}
+                      </text>
+                      <text x="146" y="16" fill="#E06A3B" fontSize="9" fontFamily="JetBrains Mono" fontWeight="600">
+                        {activeTarget.elevationM >= 0 ? '+' : ''}{activeTarget.elevationM}m
+                      </text>
+                    </g>
+                  </>
+                ) : activeBody === 'mars' ? (
+                  <>
+                    {/* Mars Chryse / Isidis Basin Contours */}
+                    <ellipse cx="250" cy="250" rx="120" ry="85" fill="#F4E9DB" stroke="#D9C5B2" strokeWidth="1.5" />
+                    <ellipse cx="320" cy="220" rx="55" ry="40" fill="#EAD5C3" stroke="#C49B7A" strokeWidth="1.5" />
+                    <text x="320" y="224" textAnchor="middle" fill="#8C4E28" fontSize="10" fontFamily="Outfit" fontWeight="700">
+                      JEZERO DELTA
+                    </text>
+
+                    {/* Valles Marineris Canyon Fault */}
+                    <path d="M120,310 Q200,290 290,320" fill="none" stroke="#A84E2A" strokeWidth="4" strokeLinecap="round" />
+                    <text x="200" y="335" textAnchor="middle" fill="#8C4E28" fontSize="9" fontFamily="Outfit" fontWeight="600">
+                      VALLES MARINERIS
+                    </text>
+
+                    {/* Active Mars Target Callout */}
+                    <g transform="translate(160, 150)">
+                      <rect width="180" height="24" rx="12" fill="#FFFFFF" stroke="#E06A3B" strokeWidth="1" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.08))" />
+                      <circle cx="12" cy="12" r="3.5" fill="#E06A3B" />
+                      <text x="22" y="16" fill="#1D1B17" fontSize="10" fontFamily="Outfit" fontWeight="600">
+                        {activeTarget.name.slice(0, 18)}
+                      </text>
+                      <text x="146" y="16" fill="#E06A3B" fontSize="9" fontFamily="JetBrains Mono" fontWeight="600">
+                        {activeTarget.elevationM}m
+                      </text>
+                    </g>
+                  </>
+                ) : (
+                  <>
+                    {/* Earth Geodetic Continents outline */}
+                    <ellipse cx="250" cy="250" rx="150" ry="110" fill="#EAF4EE" stroke="#A7D5BE" strokeWidth="1.5" />
+                    <text x="250" y="240" textAnchor="middle" fill="#184633" fontSize="11" fontFamily="Outfit" fontWeight="700">
+                      TERRESTRIAL RESEARCH ANALOGS
+                    </text>
+                    <g transform="translate(145, 270)">
+                      <rect width="210" height="26" rx="13" fill="#184633" filter="drop-shadow(0 2px 6px rgba(0,0,0,0.12))" />
+                      <circle cx="13" cy="13" r="4" fill="#E06A3B" />
+                      <text x="24" y="17" fill="#FFFFFF" fontSize="10" fontFamily="Outfit" fontWeight="600">
+                        {selectedSite.name.split(' (')[0].slice(0, 20)}
+                      </text>
+                      <text x="175" y="17" fill="#BAEED1" fontSize="9" fontFamily="JetBrains Mono" fontWeight="600">
+                        +{selectedSite.elevationM}m
+                      </text>
+                    </g>
+                  </>
+                )}
               </svg>
             </div>
           )}
 
-          {/* Overlaid Floating HUD Card: Grazing Sun */}
-          <div className="absolute bottom-4 left-4 z-10 pointer-events-none">
-            <div className="bg-[#FFFFFF]/95 backdrop-blur-sm rounded-full border border-[#414943]/10 shadow-md px-3.5 py-1.5 flex items-center gap-2 text-xs font-mono text-[#1D1B17]">
-              <Sun className="w-3.5 h-3.5 text-[#E69A28]" />
-              <span>Grazing Sun: Subsolar +1.84° • Shadow: 74%</span>
+          {/* Overlaid Floating HUD Card: Solar / Grazing Sun */}
+          <div className="absolute top-3 left-3 z-10 pointer-events-none">
+            <div className="bg-[#FFFFFF]/95 backdrop-blur-sm rounded-full border border-[#414943]/10 shadow-soft-card px-3.5 py-1.5 flex items-center gap-2 text-xs font-mono text-[#1D1B17]">
+              <Sun className="w-3.5 h-3.5 text-[#E69A28] shrink-0" />
+              <span>
+                {activeBody === 'moon' ? (
+                  <>
+                    Grazing Sun: Subsolar +{activeTarget.solarElevationMinDeg.toFixed(2)}° • Shadow: 74%
+                  </>
+                ) : activeBody === 'mars' ? (
+                  <>
+                    Solar Incidence: +{activeTarget.solarElevationMeanDeg.toFixed(1)}° • Dust Flux: {activeTarget.aeolianDustFlux}/100
+                  </>
+                ) : (
+                  <>
+                    Solar Noon: +{selectedSite.monthlySolarNoonDeg[seasonalBinIdx ?? 0].toFixed(1)}° • Albedo: {selectedSite.albedo.toFixed(2)}
+                  </>
+                )}
+              </span>
             </div>
           </div>
 
           {/* Overlaid Floating HUD Card: Cross-Section Profile */}
-          <div className="absolute bottom-4 right-4 z-10 bg-[#FFFFFF]/95 backdrop-blur-sm rounded-2xl border border-[#414943]/10 shadow-md p-3 w-64">
-            <div className="flex items-center justify-between text-[11px] font-semibold text-[#1D1B17] mb-1.5">
-              <span>Cross-Section (A-B)</span>
+          <div className="absolute bottom-3 right-3 z-10 bg-[#FFFFFF]/95 backdrop-blur-sm rounded-2xl border border-[#414943]/10 shadow-soft-card p-2.5 sm:p-3 w-56 sm:w-60">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-[#1D1B17] mb-1">
+              <span className="truncate max-w-[130px]">
+                Cross-Section ({activeBody === 'earth' ? selectedSite.name.split(' (')[0] : activeTarget.name})
+              </span>
               <span className="font-mono text-[#E06A3B] text-[10px] font-bold">
-                +1,240m to -3,800m
+                {crossSectionSvg.max >= 0 ? '+' : ''}{crossSectionSvg.max.toLocaleString()}m to {crossSectionSvg.min >= 0 ? '+' : ''}{crossSectionSvg.min.toLocaleString()}m
               </span>
             </div>
-            <svg viewBox="0 0 220 42" className="w-full h-10 overflow-visible">
+            <svg viewBox="0 0 220 42" className="w-full h-9 overflow-visible">
               <defs>
                 <linearGradient id="csGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#E06A3B" stopOpacity="0.45" />
@@ -534,179 +659,197 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
           <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-[#0F422E]">
             <span className="w-2 h-2 rounded-full bg-[#184633]" />
-            <span>NASA PDS LOLA &amp; Diviner Certified</span>
+            <span>
+              {activeBody === 'mars'
+                ? 'NASA PDS MGS MOLA & THEMIS Certified'
+                : activeBody === 'earth'
+                  ? 'NASA Earthdata & Copernicus Certified'
+                  : 'NASA PDS LOLA & Diviner Certified'}
+            </span>
           </div>
         </div>
       </section>
 
       {/* ===================== RIGHT COLUMN ===================== */}
-      <aside className="flex flex-col gap-5">
+      <aside className="flex flex-col gap-4">
         {/* Card 1: GEOLOGICAL DOSSIER */}
-        <div className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-5">
-          <div className="flex items-center justify-between mb-2">
+        <div className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-4 sm:p-4.5">
+          <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] font-semibold tracking-[0.08em] uppercase text-[#696156]">
               Geological Dossier
             </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-[#FFF2EB] border border-[#FFDBCF] text-[10px] font-bold text-[#E06A3B]">
-              CLASS A-1
+            <span className="px-2 py-0.5 rounded-full bg-[#FFF2EB] border border-[#FFDBCF] text-[10px] font-bold text-[#E06A3B]">
+              {activeBody === 'earth'
+                ? selectedSite.isCatalogKnown
+                  ? 'CATALOG BENCHMARK'
+                  : 'NOVEL ANALOG'
+                : activeTarget.classLabel}
             </span>
           </div>
 
-          <h3 className="font-display text-2xl font-bold tracking-tight text-[#1D1B17]">
-            {activeTarget.name}
+          <h3 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-[#1D1B17]">
+            {activeBody === 'earth'
+              ? selectedSite.name.split(' (')[0]
+              : activeTarget.name}
           </h3>
 
           {/* 2x2 Metric Grid */}
-          <div className="grid grid-cols-2 gap-2.5 mt-3.5">
+          <div className="grid grid-cols-2 gap-2 mt-2.5">
             {/* Min Surface T */}
-            <div className="bg-[#F9F3EB] rounded-2xl p-3 border border-[#414943]/6">
-              <div className="flex items-center gap-1.5 text-[11px] text-[#696156] font-medium">
+            <div className="bg-[#F9F3EB] rounded-2xl p-2.5 border border-[#414943]/6">
+              <div className="flex items-center gap-1.5 text-[10px] text-[#696156] font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#E06A3B]" />
                 Min Surface T
               </div>
-              <div className="font-display font-bold text-2xl text-[#E06A3B] mt-1">
-                -203°C
+              <div className="font-display font-bold text-xl text-[#E06A3B] mt-0.5">
+                {activeBody === 'earth'
+                  ? `${Math.min(...selectedSite.monthlyMinTempC)}°C`
+                  : `${activeTarget.minTempC}°C`}
               </div>
-              <div className="font-mono text-[10px] text-[#696156] mt-0.5">
-                69.7 K (Cryo Trap)
+              <div className="font-mono text-[9px] text-[#696156] mt-0.5 truncate">
+                {activeBody === 'earth'
+                  ? `${Math.round(Math.min(...selectedSite.monthlyMinTempC) + 273.15)} K (Coldest Month)`
+                  : `${Math.round(activeTarget.minTempC + 273.15)} K (${activeTarget.body === 'moon' ? 'Cryo Trap' : 'Winter Min'})`}
               </div>
             </div>
 
             {/* Max Surface T */}
-            <div className="bg-[#F9F3EB] rounded-2xl p-3 border border-[#414943]/6">
-              <div className="flex items-center gap-1.5 text-[11px] text-[#696156] font-medium">
+            <div className="bg-[#F9F3EB] rounded-2xl p-2.5 border border-[#414943]/6">
+              <div className="flex items-center gap-1.5 text-[10px] text-[#696156] font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#E06A3B]" />
                 Max Surface T
               </div>
-              <div className="font-display font-bold text-2xl text-[#E06A3B] mt-1">
-                -48°C
+              <div className="font-display font-bold text-xl text-[#E06A3B] mt-0.5">
+                {activeBody === 'earth'
+                  ? `${Math.max(...selectedSite.monthlyMaxTempC)}°C`
+                  : `${activeTarget.maxTempC >= 0 ? '+' : ''}${activeTarget.maxTempC}°C`}
               </div>
-              <div className="font-mono text-[10px] text-[#696156] mt-0.5">
-                225 K (Solar Peak)
+              <div className="font-mono text-[9px] text-[#696156] mt-0.5 truncate">
+                {activeBody === 'earth'
+                  ? `${Math.round(Math.max(...selectedSite.monthlyMaxTempC) + 273.15)} K (Warmest Month)`
+                  : `${Math.round(activeTarget.maxTempC + 273.15)} K (${activeTarget.body === 'moon' ? 'Solar Peak' : 'Perihelion Peak'})`}
               </div>
             </div>
 
             {/* Baseline Slope */}
-            <div className="bg-[#F9F3EB] rounded-2xl p-3 border border-[#414943]/6">
-              <div className="flex items-center gap-1.5 text-[11px] text-[#696156] font-medium">
+            <div className="bg-[#F9F3EB] rounded-2xl p-2.5 border border-[#414943]/6">
+              <div className="flex items-center gap-1.5 text-[10px] text-[#696156] font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#184633]" />
                 Baseline Slope
               </div>
-              <div className="font-display font-bold text-2xl text-[#184633] mt-1">
-                14.8°
+              <div className="font-display font-bold text-xl text-[#184633] mt-0.5">
+                {activeBody === 'earth'
+                  ? `${selectedSite.slopeDeg.toFixed(1)}°`
+                  : `${activeTarget.meanSlopeDeg.toFixed(1)}°`}
               </div>
-              <div className="font-mono text-[10px] text-[#696156] mt-0.5">
-                Moderate Traverse
+              <div className="font-mono text-[9px] text-[#696156] mt-0.5 truncate">
+                {activeBody === 'earth'
+                  ? `RMS ${selectedSite.rmsRoughnessM.toFixed(2)}m (Copernicus)`
+                  : activeTarget.meanSlopeDeg > 15
+                    ? 'Steep Scarp Flank'
+                    : 'Moderate Traverse'}
               </div>
             </div>
 
-            {/* Grazing Solar */}
-            <div className="bg-[#F9F3EB] rounded-2xl p-3 border border-[#414943]/6">
-              <div className="flex items-center gap-1.5 text-[11px] text-[#696156] font-medium">
+            {/* Grazing Solar / Aridity Index */}
+            <div className="bg-[#F9F3EB] rounded-2xl p-2.5 border border-[#414943]/6">
+              <div className="flex items-center gap-1.5 text-[10px] text-[#696156] font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#E69A28]" />
-                Grazing Solar
+                {activeBody === 'earth'
+                  ? 'Aridity & Ice'
+                  : activeBody === 'mars'
+                    ? 'Diurnal Swing'
+                    : 'Grazing Solar'}
               </div>
-              <div className="font-display font-bold text-2xl text-[#E69A28] mt-1">
-                1.8°–5.6°
+              <div className="font-display font-bold text-xl text-[#E69A28] mt-0.5 truncate">
+                {activeBody === 'earth'
+                  ? `${selectedSite.aridityIndex}%`
+                  : activeBody === 'mars'
+                    ? `${activeTarget.diurnalDeltaK} K`
+                    : `${activeTarget.solarElevationMinDeg.toFixed(1)}°–${activeTarget.solarElevationMaxDeg.toFixed(1)}°`}
               </div>
-              <div className="font-mono text-[10px] text-[#696156] mt-0.5">
-                Quasi-Continuous
+              <div className="font-mono text-[9px] text-[#696156] mt-0.5 truncate">
+                {activeBody === 'earth'
+                  ? `Salinity ${selectedSite.salinityIndex}/100`
+                  : activeBody === 'mars'
+                    ? `Dust: ${activeTarget.aeolianDustFlux}/100`
+                    : 'Quasi-Continuous'}
               </div>
             </div>
           </div>
         </div>
 
         {/* Card 2: TOP MATCHED EARTH ANALOGS */}
-        <div className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-4 sm:p-4.5">
+          <div className="flex items-center justify-between mb-2">
             <span className="text-[11px] font-semibold tracking-[0.08em] uppercase text-[#696156]">
               Top Matched Earth Analogs
             </span>
             <span className="text-xs font-semibold text-[#696156]">Top 3 Sites</span>
           </div>
 
-          <div className="flex flex-col gap-3">
-            {/* 1. University Valley, Antarctica */}
-            <div
-              onClick={() => onSelectSite('univ_valley')}
-              className="p-3 rounded-2xl bg-[#F9F3EB] border border-[#414943]/8 hover:border-[#184633]/30 cursor-pointer transition-all"
-            >
-              <div className="flex items-center justify-between text-xs font-bold text-[#1D1B17]">
-                <span>University Valley, Antarctica</span>
-                <span className="px-2 py-0.5 rounded-full bg-[#EAF4EE] text-[#0F422E] font-semibold text-[11px]">
-                  86.4% Match
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-[#696156] mt-1">
-                <span>Dry permafrost ice-table ground</span>
-                <span className="font-mono font-medium">Nov–Jan</span>
-              </div>
-              <div className="h-1.5 w-full bg-[#EDE5D8] rounded-full mt-2 overflow-hidden">
-                <div className="h-full bg-[#184633] rounded-full" style={{ width: '86.4%' }} />
-              </div>
-            </div>
+          <div className="flex flex-col gap-2">
+            {top3Analogs.map((cand, idx) => {
+              const isSelected = cand.site.id === selectedSite.id;
+              const score = cand.bestMonthScore.toFixed(1);
+              const monthLabel = MONTH_LABELS[cand.bestMonthIndex];
+              const barColor = idx === 0 ? 'bg-[#184633]' : 'bg-[#E06A3B]';
+              const badgeColor =
+                idx === 0
+                  ? 'bg-[#EAF4EE] text-[#0F422E]'
+                  : 'bg-[#FFF2EB] text-[#E06A3B]';
 
-            {/* 2. Salar de Gorbea, Chile/Arg */}
-            <div
-              onClick={() => onSelectSite('salar_gorbea')}
-              className="p-3 rounded-2xl bg-[#F9F3EB] border border-[#414943]/8 hover:border-[#E06A3B]/30 cursor-pointer transition-all"
-            >
-              <div className="flex items-center justify-between text-xs font-bold text-[#1D1B17]">
-                <span>Salar de Gorbea, Chile/Arg</span>
-                <span className="font-mono font-bold text-[#E06A3B] text-[11px]">
-                  84.2% Match
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-[#696156] mt-1">
-                <span>Cryogenic evaporite salts &amp; high UV</span>
-                <span className="font-mono font-medium">Dec–Feb</span>
-              </div>
-              <div className="h-1.5 w-full bg-[#EDE5D8] rounded-full mt-2 overflow-hidden">
-                <div className="h-full bg-[#E06A3B] rounded-full" style={{ width: '84.2%' }} />
-              </div>
-            </div>
-
-            {/* 3. Qaidam Basin, Tibetan Plat. */}
-            <div
-              onClick={() => onSelectSite('qaidam_basin')}
-              className="p-3 rounded-2xl bg-[#F9F3EB] border border-[#414943]/8 hover:border-[#E06A3B]/30 cursor-pointer transition-all"
-            >
-              <div className="flex items-center justify-between text-xs font-bold text-[#1D1B17]">
-                <span>Qaidam Basin, Tibetan Plat.</span>
-                <span className="font-mono font-bold text-[#E06A3B] text-[11px]">
-                  79.1% Match
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-[#696156] mt-1">
-                <span>Yardang field &amp; thermal cycling</span>
-                <span className="font-mono font-medium">Apr–Jun</span>
-              </div>
-              <div className="h-1.5 w-full bg-[#EDE5D8] rounded-full mt-2 overflow-hidden">
-                <div className="h-full bg-[#E06A3B] rounded-full" style={{ width: '79.1%' }} />
-              </div>
-            </div>
+              return (
+                <div
+                  key={cand.site.id}
+                  onClick={() => onSelectSite(cand.site.id)}
+                  className={`p-2.5 rounded-2xl border transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#FFFFFF] border-[#184633] shadow-xs ring-1 ring-[#184633]/20'
+                      : 'bg-[#F9F3EB] border-[#414943]/8 hover:border-[#184633]/30'
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-xs font-bold text-[#1D1B17]">
+                    <span className="truncate max-w-[200px]">{cand.site.name.split(' (')[0]}</span>
+                    <span className={`px-2 py-0.5 rounded-full font-mono text-[10px] font-bold ${badgeColor}`}>
+                      {score}% Match
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-[#696156] mt-0.5">
+                    <span className="truncate max-w-[210px]">{cand.site.biomeCharacter}</span>
+                    <span className="font-mono font-medium">{monthLabel} Window</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-[#EDE5D8] rounded-full mt-1.5 overflow-hidden">
+                    <div
+                      className={`h-full ${barColor} rounded-full transition-all duration-300`}
+                      style={{ width: `${Math.min(100, Math.max(0, cand.bestMonthScore))}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
         {/* Card 3: Terrain Match Reference */}
-        <div className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-5">
-          <div className="flex items-center justify-between mb-2.5">
+        <div className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-4 sm:p-4.5">
+          <div className="flex items-center justify-between mb-2">
             <span className="text-[11px] font-semibold tracking-[0.08em] uppercase text-[#696156]">
               Terrain Match Reference
             </span>
-            <span className="text-xs font-semibold text-[#184633]">
-              University Valley Ridge
+            <span className="text-xs font-semibold text-[#184633] truncate max-w-[170px]" title={selectedSite.name}>
+              {selectedSite.name.split(' (')[0]}
             </span>
           </div>
 
           <div className="relative rounded-2xl overflow-hidden border border-[#414943]/8">
             <TerrainPreviewArtwork
-              siteId="univ_valley"
-              siteName="University Valley"
-              heightClass="h-28"
+              siteId={selectedSite.id}
+              siteName={selectedSite.name}
+              heightClass="h-24 sm:h-28"
             />
-            <div className="absolute bottom-2.5 left-2.5 bg-[#FFFFFF]/90 backdrop-blur-sm px-3 py-1 rounded-full text-[11px] font-semibold text-[#1D1B17] shadow-xs">
-              Polar Regolith Simulant
+            <div className="absolute bottom-2 left-2 bg-[#FFFFFF]/90 backdrop-blur-sm px-2.5 py-0.5 rounded-full text-[10px] font-semibold text-[#1D1B17] shadow-xs truncate max-w-[240px]">
+              {selectedSite.biomeCharacter}
             </div>
           </div>
         </div>
@@ -715,7 +858,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         <button
           type="button"
           onClick={onOpenReport}
-          className="w-full bg-[#FFFFFF] hover:bg-[#EAF4EE] active:scale-[0.99] border border-[#184633] text-[#184633] font-semibold py-3 px-6 rounded-full flex items-center justify-center gap-2 text-xs transition-colors cursor-pointer shadow-xs"
+          className="w-full bg-[#FFFFFF] hover:bg-[#EAF4EE] active:scale-[0.99] border border-[#184633] text-[#184633] font-semibold py-2.5 px-5 rounded-full flex items-center justify-center gap-2 text-xs transition-colors cursor-pointer shadow-xs"
         >
           <BookOpen className="w-4 h-4 text-[#184633]" />
           <span>Open Analog Fidelity Dossier</span>

@@ -163,23 +163,21 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       <section className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-6 flex flex-wrap items-center justify-between gap-4">
         <div className="max-w-2xl">
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            <span className="px-2.5 py-0.5 rounded-full bg-[#F3EDE5] font-mono text-[11px] font-semibold text-[#414943]">
-              FR-06 · SYNTHESIS SUITE
+            <span className="px-2.5 py-0.5 rounded-full bg-[#EAF4EE] font-mono text-[11px] font-semibold text-[#0F422E]">
+              MISSION SYNTHESIS
             </span>
             <span className="px-2.5 py-0.5 rounded-full bg-[#FDF2EC] text-[#A33E11] text-[11px] font-semibold">
-              ● Optimal Set-Cover v4.2
+              OPTIMAL SET-COVER
             </span>
             <span className="font-mono text-[11px] text-[#696156]">
               Target: {activeTarget.name}
             </span>
           </div>
           <h1 className="font-display text-3xl font-bold text-[#1D1B17] tracking-tight">
-            Mission Synthesis & Fidelity Dossier
+            Mission Synthesis &amp; Fidelity Dossier
           </h1>
           <p className="text-xs text-[#414943] mt-1.5 leading-relaxed">
-            Multi-Site Ground Analogs Portfolio Optimization via Iterative Greedy
-            Set-Cover Algorithmic Coverage (Gain +{portfolio.gainPct}% over single
-            site {portfolio.singleBestCoveragePct}%).
+            Multi-site ground analog portfolio optimization delivering +{portfolio.gainPct}% higher scientific coverage over single-site deployment.
           </p>
         </div>
 
@@ -253,15 +251,19 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               </span>
               <div className="flex flex-col gap-1">
                 {[
-                  { id: 'summary', label: 'Executive Summary' },
-                  { id: 'setcover', label: 'Multi-Site Set Cover', tag: `${portfolioK} Sites` },
-                  { id: 'matrix', label: 'Dimension Matrix', tag: '8 Dim' },
-                  { id: 'gantt', label: 'Deployment Gantt', tag: '26–27' },
+                  { id: 'summary', label: 'Executive Summary', targetId: 'report-summary' },
+                  { id: 'setcover', label: 'Multi-Site Set Cover', tag: `${portfolioK} Sites`, targetId: 'report-setcover' },
+                  { id: 'matrix', label: 'Dimension Matrix', tag: '8 Dim', targetId: 'report-matrix' },
+                  { id: 'gantt', label: 'Deployment Gantt', tag: '26–27', targetId: 'report-gantt' },
                 ].map((nav) => (
                   <button
                     key={nav.id}
                     type="button"
-                    onClick={() => setActiveSection(nav.id)}
+                    onClick={() => {
+                      setActiveSection(nav.id);
+                      const el = document.getElementById(nav.targetId);
+                      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }}
                     className={`flex items-center justify-between px-3 py-2 rounded-2xl text-xs font-medium transition-colors cursor-pointer ${
                       activeSection === nav.id
                         ? 'bg-[#0F422E] text-white font-semibold'
@@ -351,44 +353,36 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             {/* Raw Data Exports */}
             <div className="space-y-2 pt-1">
               <div className="text-[10px] font-semibold uppercase tracking-wider text-[#696156]">
-                Export Raw Data
+                Export Mission Dossier
               </div>
               <div className="grid grid-cols-3 gap-1.5">
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="py-2 rounded-xl bg-[#F9F3EB] hover:bg-[#EDE5D8] text-[11px] font-semibold text-[#1D1B17] flex items-center justify-center gap-1 cursor-pointer"
+                  className="py-2.5 rounded-xl bg-[#F9F3EB] hover:bg-[#EDE5D8] text-[11px] font-semibold text-[#1D1B17] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  <Printer className="w-3 h-3" />
-                  PDF
+                  <Printer className="w-3.5 h-3.5 text-[#0F422E]" />
+                  <span>PDF</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleExportMarkdown}
-                  className="py-2 rounded-xl bg-[#F9F3EB] hover:bg-[#EDE5D8] text-[11px] font-semibold text-[#1D1B17] flex items-center justify-center gap-1 cursor-pointer"
+                  className="py-2.5 rounded-xl bg-[#F9F3EB] hover:bg-[#EDE5D8] text-[11px] font-semibold text-[#1D1B17] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  <FileText className="w-3 h-3" />
-                  MD
+                  <FileText className="w-3.5 h-3.5 text-[#E06A3B]" />
+                  <span>MD</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleExportJson}
-                  className="py-2 rounded-xl bg-[#F9F3EB] hover:bg-[#EDE5D8] text-[11px] font-semibold text-[#1D1B17] flex items-center justify-center gap-1 cursor-pointer"
+                  className="py-2.5 rounded-xl bg-[#F9F3EB] hover:bg-[#EDE5D8] text-[11px] font-semibold text-[#1D1B17] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  <Download className="w-3 h-3" />
-                  JSON
+                  <Download className="w-3.5 h-3.5 text-[#0F422E]" />
+                  <span>JSON</span>
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={handleExportJson}
-                className="w-full py-3 rounded-full bg-[#0F422E] hover:bg-[#2A5A44] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <FileText className="w-3.5 h-3.5" />
-                <span>Generate Mission Dossier</span>
-              </button>
               {exportNotice && (
-                <p className="font-mono text-[11px] text-center text-[#0F422E]">
+                <p className="font-mono text-[11px] text-center text-[#0F422E] bg-[#EAF4EE] py-1 rounded-lg">
                   {exportNotice}
                 </p>
               )}
@@ -399,8 +393,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         {/* CENTER COLUMN: Set-Cover Portfolio Cards, Dimension Matrix, Deployment Gantt */}
         <main className="flex flex-col gap-6">
           {/* Card 1: Weighted Set-Cover Portfolio Recommendation */}
-          <section className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-6">
-            <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+          <section id="report-summary" className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-6">
+            <div id="report-setcover" className="flex flex-wrap items-start justify-between gap-3 mb-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="px-2.5 py-0.5 rounded-full bg-[#EAF4EE] text-[#0F422E] text-[11px] font-semibold">
@@ -494,7 +488,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           </section>
 
           {/* Card 2: Per-Dimension Fidelity Matrix */}
-          <section className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-6">
+          <section id="report-matrix" className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-6">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
               <div>
                 <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#696156]">
@@ -554,7 +548,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           </section>
 
           {/* Card 3: Temporal Deployment Schedule 2026–2027 Gantt */}
-          <section className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-6">
+          <section id="report-gantt" className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-6">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <div>
                 <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#696156]">

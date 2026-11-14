@@ -161,10 +161,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       ctx.closePath();
 
       ctx.fillStyle = isScrubMonth
-        ? 'rgba(224, 106, 59, 0.22)'
+        ? 'rgba(224, 106, 59, 0.20)'
         : monthHasValid
-          ? 'rgba(24, 70, 51, 0.16)'
-          : 'rgba(243, 237, 229, 0.7)';
+          ? 'rgba(24, 70, 51, 0.14)'
+          : 'rgba(243, 237, 229, 0.65)';
       ctx.fill();
 
       ctx.beginPath();
@@ -176,18 +176,18 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         ? '#E06A3B'
         : monthHasValid
           ? '#184633'
-          : 'rgba(148, 163, 184, 0.4)';
+          : 'rgba(105, 97, 86, 0.28)';
       ctx.lineWidth = isScrubMonth ? 2.4 : monthHasValid ? 1.8 : 1.1;
       ctx.stroke();
 
       ctx.beginPath();
       ctx.moveTo(originX, originY);
       ctx.lineTo(originX + sliceWidth, originY);
-      ctx.strokeStyle = 'rgba(65, 73, 67, 0.12)';
+      ctx.strokeStyle = 'rgba(65, 73, 67, 0.10)';
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      ctx.font = '500 10px "JetBrains Mono", monospace';
+      ctx.font = '600 10px "JetBrains Mono", monospace';
       ctx.fillStyle = isScrubMonth
         ? '#E06A3B'
         : monthHasValid
@@ -208,7 +208,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     ctx.beginPath();
     ctx.moveTo(markerX, sOriginY + 8);
     ctx.lineTo(markerX, markerY - 12);
-    ctx.strokeStyle = '#E69A28';
+    ctx.strokeStyle = '#E06A3B';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([3, 3]);
     ctx.stroke();
@@ -396,22 +396,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             className="w-full terra-slider"
             aria-label="Temporal window fidelity threshold"
           />
-          <p className="text-[11px] text-[#696156] mt-2 leading-snug">
-            Contiguous window extraction where daily spline fidelity{' '}
-            <span className="font-mono">F(t) ≥ {thresholdPct}%</span>.
+          <p className="font-mono text-[11px] text-[#696156] mt-1.5">
+            Daily spline fidelity F(t) ≥ {thresholdPct}% cutoff
           </p>
         </div>
       </aside>
 
       {/* CENTER STAGE: Analog Window Matrix, Heatstrip, Stacked Waveforms / 3D Stack */}
-      <section className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-5 flex flex-col gap-5">
+      <section className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-5 flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-display text-xl font-bold text-[#1D1B17]">
               Analog Window Matrix
             </h2>
             <p className="text-xs text-[#696156]">
-              365-day seasonal overlap comparing {selectedSite.name.split(' (')[0]} vs{' '}
+              365-day seasonal overlap: {selectedSite.name.split(' (')[0]} vs{' '}
               {activeTarget.name}
             </p>
           </div>
@@ -456,7 +455,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
 
         {/* Active Window Gradient Banner */}
-        <div className="rounded-2xl bg-gradient-to-r from-[#EAF4EE] via-[#FAF7F2] to-[#FDF2EC] border border-[#2A5A44]/15 p-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="rounded-2xl bg-gradient-to-r from-[#EAF4EE] via-[#FAF7F2] to-[#FDF2EC] border border-[#2A5A44]/15 p-3.5 flex flex-wrap items-center justify-between gap-3">
           <div>
             <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#0F422E]">
               Active Valid Expedition Window ({activeObjective.shortName})
@@ -467,13 +466,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="px-3.5 py-2 rounded-2xl bg-[#FFFFFF] border border-[#414943]/10 text-center">
+            <div className="px-3 py-1.5 rounded-2xl bg-[#FFFFFF] border border-[#414943]/10 text-center">
               <div className="text-[10px] text-[#696156] uppercase">Duration</div>
               <div className="font-mono text-sm font-bold text-[#0F422E]">
                 {activeWindow.durationDays} Days
               </div>
             </div>
-            <div className="px-3.5 py-2 rounded-2xl bg-[#FFFFFF] border border-[#414943]/10 text-center">
+            <div className="px-3 py-1.5 rounded-2xl bg-[#FFFFFF] border border-[#414943]/10 text-center">
               <div className="text-[10px] text-[#696156] uppercase">Peak Score</div>
               <div className="font-mono text-sm font-bold text-[#A33E11]">
                 {activeWindow.peakScore.toFixed(1)}%
@@ -527,10 +526,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
         {/* Center Main Stage Content */}
         {stageMode === 'stack3d' ? (
-          <div className="h-[340px] rounded-2xl overflow-hidden border border-[#222938] relative">
+          <div className="h-[340px] rounded-2xl overflow-hidden border border-[#414943]/10 bg-[#F8F5EE] relative">
             <canvas ref={canvasRef} className="w-full h-full block" />
-            <div className="pointer-events-none absolute top-3 right-3 bg-[#12161F]/95 border border-[#222938] rounded-xl px-3 py-1.5 text-[11px] font-mono text-[#F0F4F8]">
-              Green Strata = Analog Window ≥ {thresholdPct}% · Amber = Cursor
+            <div className="pointer-events-none absolute top-3 right-3 bg-[#FFFFFF] border border-[#414943]/12 rounded-full px-3 py-1 text-[11px] font-mono text-[#1D1B17] shadow-xs">
+              <span className="text-[#184633] font-semibold">Green Strata</span> ≥ {thresholdPct}% · <span className="text-[#E06A3B] font-semibold">Terracotta</span> = Cursor
             </div>
           </div>
         ) : (
@@ -775,15 +774,22 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
         {/* Where the Analogy Fails */}
         <div className="p-3.5 rounded-2xl bg-[#FDF2EC] border border-[#E06A3B]/25 text-xs">
-          <div className="flex items-center gap-1.5 font-semibold text-[#A33E11] mb-1.5">
-            <AlertTriangle className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-1.5 font-semibold text-[#A33E11] mb-2">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
             <span>Where The Analogy Fails</span>
           </div>
-          <p className="text-[11px] text-[#414943] leading-snug">
-            {breakdownItems[0].pillar}: {breakdownItems[0].earthValue} vs{' '}
-            {breakdownItems[0].targetValue}. {breakdownItems[1].pillar}:{' '}
-            {breakdownItems[1].earthValue} vs {breakdownItems[1].targetValue}.
-          </p>
+          <div className="space-y-1.5 text-[11px] text-[#414943]">
+            <div>
+              • <strong className="font-semibold text-[#1D1B17]">{breakdownItems[0]?.pillar}:</strong>{' '}
+              {breakdownItems[0]?.earthValue} vs {breakdownItems[0]?.targetValue}
+            </div>
+            {breakdownItems[1] && (
+              <div>
+                • <strong className="font-semibold text-[#1D1B17]">{breakdownItems[1]?.pillar}:</strong>{' '}
+                {breakdownItems[1]?.earthValue} vs {breakdownItems[1]?.targetValue}
+              </div>
+            )}
+          </div>
         </div>
 
         <button

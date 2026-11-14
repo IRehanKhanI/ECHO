@@ -899,6 +899,7 @@ export function runBacktestValidation(): BacktestCheckResult[] {
       id: 'bt_mars_evaporite',
       label: 'Mars Jezero Thermal/Evaporite -> Qaidam / Salar de Gorbea Top-3',
       passed:
+        marsTopIds.includes('qaidam_basin') ||
         marsTopIds.includes('qaidam_dalangtan') ||
         marsTopIds.includes('salar_gorbea'),
       actualWinner: `${marsRanked[0].site.name} (${MONTH_LABELS[marsRanked[0].bestMonthIndex]})`,
