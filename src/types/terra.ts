@@ -5,7 +5,7 @@ export type WorkspaceView =
   | 'discovery'
   | 'calendar'
   | 'lab'
-  | 'simulator'
+  | 'cad'
   | 'reports';
 
 export type ProvenanceTag =
@@ -34,6 +34,17 @@ export type ScientificLayerId =
   | 'srtm_slope'
   | 'modis_lst'
   | 'permafrost_ice';
+
+export interface EarthAnalogResult {
+  id: number;
+  location_name: string;
+  country: string;
+  lat: number;
+  lng: number;
+  min_temp_c: number;
+  slope_deg: number;
+  cosine_distance: number;
+}
 
 export interface ScientificLayerMeta {
   id: ScientificLayerId;

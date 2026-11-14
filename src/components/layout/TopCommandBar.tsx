@@ -15,7 +15,7 @@ const WORKSPACE_TABS: { id: WorkspaceView; label: string }[] = [
   { id: 'discovery', label: '2. Analog Discovery' },
   { id: 'calendar', label: '3. Calendar' },
   { id: 'lab', label: '4. Virtual Lab' },
-  { id: 'simulator', label: '5. Hardware CAD' },
+  { id: 'cad', label: '5. Hardware CAD' },
   { id: 'reports', label: '6. Reports' },
 ];
 
@@ -41,7 +41,7 @@ export const TopCommandBar: React.FC<TopCommandBarProps> = ({
           <span className="flex flex-col leading-tight">
             <span className="flex items-center gap-1.5">
               <span className="font-display text-base sm:text-lg font-bold tracking-tight text-[#1D1B17]">
-                TERRA-X
+                ECHO
               </span>
               <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#FFF2EB] border border-[#FFDBCF] text-[10px] font-semibold text-[#E06A3B]">
                 Planetary Studio

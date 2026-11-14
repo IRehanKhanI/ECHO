@@ -25,6 +25,7 @@ import {
   DimensionWeights,
   PlanetBody,
   ScientificLayerId,
+  EarthAnalogResult,
   WorkspaceView,
 } from './types/terra';
 
@@ -45,6 +46,7 @@ export default function App() {
   const [noveltyOnly, setNoveltyOnly] = useState<boolean>(false);
   const [thresholdPct, setThresholdPct] = useState<number>(75);
   const [selectedSiteId, setSelectedSiteId] = useState<string>('univ_valley');
+  const [analogResults, setAnalogResults] = useState<EarthAnalogResult[] | null>(null);
 
   const activeTarget = useMemo(
     () =>
@@ -159,7 +161,8 @@ export default function App() {
             rankedCandidates={rankedCandidates}
             selectedSite={selectedSite}
             onSelectSite={setSelectedSiteId}
-            onLaunchDiscovery={() => setActiveView('discovery')}
+            setActiveTab={setActiveView}
+            setAnalogResults={setAnalogResults}
             onOpenReport={() => setActiveView('reports')}
           />
         )}
@@ -203,11 +206,11 @@ export default function App() {
           <VirtualLabView
             activeTarget={activeTarget}
             selectedSite={selectedSite}
-            onLaunchSimulator={() => setActiveView('simulator')}
+            onLaunchSimulator={() => setActiveView('cad')}
           />
         )}
 
-        {activeView === 'simulator' && (
+        {activeView === 'cad' && (
           <SimulatorView
             selectedSite={selectedSite}
             onSelectSite={setSelectedSiteId}
@@ -224,6 +227,7 @@ export default function App() {
             selectedSite={selectedSite}
             noveltyOnly={noveltyOnly}
             onToggleNovelty={setNoveltyOnly}
+            analogResults={analogResults}
           />
         )}
       </main>
@@ -232,7 +236,7 @@ export default function App() {
         <div className="bg-[#FFFFFF] rounded-full border border-[#414943]/8 shadow-soft-card px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-[#696156]">
           <div className="flex items-center gap-2.5 truncate">
             <span className="font-display font-bold text-[#1D1B17]">
-              TERRA-X Workstation
+              ECHO Workstation
             </span>
             <span aria-hidden="true">·</span>
             <span className="truncate">

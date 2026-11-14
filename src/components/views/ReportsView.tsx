@@ -23,7 +23,9 @@ import {
   ObjectiveProfile,
   PlanetaryTarget,
   ScoredCandidate,
+  EarthAnalogResult,
 } from '../../types/terra';
+import { calculateTemperatureMatchPercentage } from '../../utils/analogMatch';
 import { ProvenanceBadge } from '../common/ProvenanceBadge';
 import { TerrainPreviewArtwork } from '../common/TerrainPreviewArtwork';
 
@@ -35,6 +37,7 @@ interface ReportsViewProps {
   selectedSite: EarthCandidateSite;
   noveltyOnly: boolean;
   onToggleNovelty: (val: boolean) => void;
+  analogResults: EarthAnalogResult[] | null;
 }
 
 export const ReportsView: React.FC<ReportsViewProps> = ({
@@ -45,6 +48,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   selectedSite,
   noveltyOnly,
   onToggleNovelty,
+  analogResults,
 }) => {
   const [portfolioK, setPortfolioK] = useState<2 | 3>(3);
   const [activeSection, setActiveSection] = useState<string>('summary');
@@ -90,7 +94,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       backtestValidation: backtests,
     };
     triggerDownload(
-      `terra-x-fidelity-${activeTarget.id}-${selectedSite.id}.json`,
+      `echo-fidelity-${activeTarget.id}-${selectedSite.id}.json`,
       JSON.stringify(payload, null, 2),
       'application/json',
     );
@@ -98,7 +102,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
   const handleExportMarkdown = () => {
     const lines: string[] = [
-      `# TERRA-X Analog Fidelity Report`,
+      `# ECHO Analog Fidelity Report`,
       `**Target:** ${activeTarget.name} (${activeTarget.coordinates})`,
       `**Earth Analog:** ${selectedSite.name} (${selectedSite.coordinates})`,
       `**Test Objective:** ${activeObjective.name}`,
@@ -125,7 +129,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       ),
     ];
     triggerDownload(
-      `terra-x-fidelity-${activeTarget.id}-${selectedSite.id}.md`,
+      `echo-fidelity-${activeTarget.id}-${selectedSite.id}.md`,
       lines.join('\n'),
       'text/markdown',
     );
@@ -418,13 +422,15 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-              {portfolio.selectedSites.map((site, idx) => {
-                const matchCand = rankedCandidates.find((c) => c.site.id === site.id);
-                const scoreVal = matchCand ? matchCand.bestMonthScore.toFixed(1) : '82.5';
+            {analogResults && analogResults.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+              {analogResults.slice(0, 3).map((analog, idx) => {
+                const scoreVal = calculateTemperatureMatchPercentage(
+                  analog.min_temp_c,
+                );
                 return (
                   <div
-                    key={site.id}
+                    key={analog.id}
                     className={`p-3.5 rounded-3xl border transition-all flex flex-col gap-2.5 ${
                       idx === 0
                         ? 'bg-[#FFFFFF] border-[#0F422E] shadow-sm'
@@ -432,27 +438,37 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                     }`}
                   >
                     <TerrainPreviewArtwork
-                      siteId={site.id}
-                      siteName={site.name}
-                      badgeText={`Site ${String.fromCharCode(65 + idx)} · ${site.country}`}
-                      scoreText={`${scoreVal}%`}
+                      siteId={`supabase-analog-${analog.id}`}
+                      siteName={analog.location_name}
+                      badgeText={`Site ${String.fromCharCode(65 + idx)} · ${analog.country}`}
+                      scoreText={`${scoreVal.toFixed(1)}%`}
                       heightClass="h-24"
                     />
                     <div>
                       <h3 className="font-display text-base font-bold text-[#1D1B17] leading-tight">
-                        {site.name.split(' (')[0]}
+                        {analog.location_name}
                       </h3>
                       <p className="font-mono text-[10px] text-[#696156] mt-0.5">
-                        {site.region} · {site.elevationM}m ASL
+                        {analog.country} · {analog.lat.toFixed(2)}°, {analog.lng.toFixed(2)}°
                       </p>
                       <p className="text-[11px] text-[#414943] mt-1.5 leading-snug">
-                        {site.fieldAccessNotes}
+                        {scoreVal.toFixed(1)}% Match · Min Temperature {analog.min_temp_c.toFixed(1)}°C
                       </p>
                     </div>
                   </div>
                 );
               })}
-            </div>
+              </div>
+            ) : (
+              <div className="mb-5 rounded-3xl border border-dashed border-[#2A5A44]/25 bg-[#EAF4EE] px-6 py-10 text-center">
+                <h3 className="font-display text-lg font-bold text-[#0F422E]">
+                  Analog Report Awaiting Data
+                </h3>
+                <p className="mt-2 text-sm text-[#414943]">
+                  Run an Analog Search on the 3D Overview to generate this report.
+                </p>
+              </div>
+            )}
 
             {/* Portfolio Allocation Table */}
             <div className="overflow-x-auto rounded-2xl border border-[#414943]/10">
