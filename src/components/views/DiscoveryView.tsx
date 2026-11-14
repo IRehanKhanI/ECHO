@@ -62,6 +62,7 @@ interface DiscoveryViewProps {
   onSelectSite: (siteId: string) => void;
   onOpenCalendar: () => void;
   analogResults: EarthAnalogResult[] | null;
+  onOpenDossier?: () => void;
 }
 
 export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
@@ -81,9 +82,12 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
   onSelectSite,
   onOpenCalendar,
   analogResults,
+  onOpenDossier,
 }) => {
   const [centerMode, setCenterMode] = useState<'globe' | 'datum'>('datum');
   const [autoRotate, setAutoRotate] = useState(false);
+  const [analogueTypeFilter, setAnalogueTypeFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const topAnalog = analogResults?.[0] ?? null;
   const dynamicAnalogs = analogResults?.slice(0, 3) ?? [];
   const radarData = useMemo(() => {
@@ -161,6 +165,51 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
     <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr_360px] gap-6 items-start">
       {/* ===================== LEFT COLUMN ===================== */}
       <aside className="flex flex-col gap-5">
+        {/* Card 0: Filter by Analogue Type & Search */}
+        <div className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-display text-sm font-bold text-[#1D1B17]">
+              Analogue Type Filter
+            </h3>
+            <span className="text-[10px] font-mono text-[#696156]">Module B Map</span>
+          </div>
+
+          {/* Search bar */}
+          <input
+            type="text"
+            placeholder="Search site, country, biome..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full px-3 py-1.5 rounded-xl bg-[#FAF7F2] border border-[#414943]/15 text-xs text-[#1D1B17] placeholder:text-[#696156]"
+          />
+
+          {/* Filter Pills */}
+          <div className="flex flex-wrap gap-1">
+            {[
+              { id: 'all', label: 'All' },
+              { id: 'basalt_volcanic', label: 'Basalt' },
+              { id: 'arid_saline', label: 'Arid/Saline' },
+              { id: 'cold_polar', label: 'Cold/Polar' },
+              { id: 'impact_terrain', label: 'Impact' },
+              { id: 'subsurface', label: 'Subsurface' },
+              { id: 'operational_isolation', label: 'Isolation' },
+            ].map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setAnalogueTypeFilter(f.id)}
+                className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-all cursor-pointer ${
+                  analogueTypeFilter === f.id
+                    ? 'bg-[#184633] text-[#FFFFFF] font-semibold'
+                    : 'bg-[#FAF7F2] text-[#696156] hover:bg-[#F3EDE5]'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Card 1: Criteria Weights */}
         <div className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-5">
           <div className="flex items-center justify-between mb-1">
@@ -928,17 +977,28 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
           </ul>
         </div>
 
-        {/* Action Button: Open Seasonal Calendar */}
-        <div>
+        {/* Action Buttons: Open Dossier & Seasonal Calendar */}
+        <div className="space-y-2">
+          {onOpenDossier && (
+            <button
+              type="button"
+              onClick={onOpenDossier}
+              className="w-full bg-[#184633] hover:bg-[#2A5A44] active:scale-[0.99] text-white font-bold py-3 px-5 rounded-full shadow-md flex items-center justify-center gap-2 text-xs transition-all cursor-pointer"
+            >
+              <span>Inspect Full Site Dossier (Module C)</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onOpenCalendar}
-            className="w-full bg-[#184633] hover:bg-[#0F3525] active:scale-[0.99] text-white font-bold py-3.5 px-6 rounded-full shadow-md flex items-center justify-center gap-2 text-sm transition-all cursor-pointer"
+            className="w-full bg-[#FFFFFF] border border-[#414943]/15 hover:bg-[#FAF7F2] text-[#1D1B17] font-semibold py-2.5 px-4 rounded-full flex items-center justify-center gap-2 text-xs transition-all cursor-pointer"
           >
             <span>Open Seasonal Calendar</span>
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
-          <p className="font-mono text-[11px] text-[#696156] text-center mt-2">
+          <p className="font-mono text-[10px] text-[#696156] text-center mt-1">
             Suggested Expedition Window:{' '}
             <strong>
               {selectedScored?.windowSummary

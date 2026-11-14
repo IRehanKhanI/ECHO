@@ -35,33 +35,27 @@ export const TelemetryStrip: React.FC<TelemetryStripProps> = ({
             <div className="flex flex-wrap items-center gap-2.5">
               <span className="flex items-center gap-1.5 font-semibold text-[#1D1B17]">
                 <Orbit className="w-4 h-4 text-[#184633] shrink-0" />
-                Target: {target.name}
+                Artemis IV Context: Lunar South Pole (Early 2028 Target)
               </span>
 
               <span aria-hidden="true" className="text-[#C0C9C1]">·</span>
 
-              <span className="font-mono text-xs text-[#696156]">
-                SPICE Kernel: {target.spiceKernel}
+              <span className="font-mono text-xs text-[#1D4ED8] bg-[#EBF3FF] px-2 py-0.5 rounded-full font-medium">
+                2 EVAs (~2 hr each) · Commercial HLS · Axiom Spacesuit Tests
               </span>
 
               <span aria-hidden="true" className="text-[#C0C9C1]">·</span>
 
               <span className="font-mono text-xs text-[#E06A3B] font-semibold flex items-center gap-1.5">
                 <Sun className="w-3.5 h-3.5 text-[#E06A3B] shrink-0" />
-                Solar Elevation: +{target.solarElevationMinDeg.toFixed(2)}°{target.body === 'moon' ? ' (Stable Grazing)' : ''}
+                Solar Grazing: +{target.solarElevationMinDeg.toFixed(2)}°
               </span>
             </div>
 
             <div className="hidden sm:flex items-center gap-2.5 font-mono text-xs shrink-0">
-              <span className="text-[#C2673B] font-medium">
-                {target.body === 'moon'
-                  ? 'Polar Stereographic Grid'
-                  : target.body === 'mars'
-                    ? 'Areocentric Grid'
-                    : 'WGS84 Geodetic Grid'}
+              <span className="px-2 py-0.5 rounded-full bg-[#FAF7F2] border border-[#414943]/15 text-[#696156]">
+                Prototype (Not NASA Endorsed)
               </span>
-              <span aria-hidden="true" className="text-[#C0C9C1]">·</span>
-              <span className="text-[#414943]">Altitude: 48.6 km</span>
             </div>
           </>
         ) : activeView === 'discovery' ? (
@@ -129,6 +123,31 @@ export const TelemetryStrip: React.FC<TelemetryStripProps> = ({
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
+              {selectedSite.distinctScores && (
+                <div className="hidden xl:flex items-center gap-1.5 text-[11px] font-mono">
+                  <span className="bg-[#EAF4EE] text-[#0F422E] px-2 py-0.5 rounded border border-[#BAEED1]">
+                    Match: {selectedSite.distinctScores.environmentalMatch}%
+                  </span>
+                  <span className="bg-[#EBF3FF] text-[#1D4ED8] px-2 py-0.5 rounded border border-[#BFDBFE]">
+                    Ops: {selectedSite.distinctScores.operationalFeasibility}/100
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 rounded border font-semibold ${
+                      selectedSite.adminFeasibility?.status === 'Feasible pathway identified'
+                        ? 'bg-[#EAF4EE] text-[#0F422E] border-[#BAEED1]'
+                        : selectedSite.adminFeasibility?.status ===
+                            'Restricted / legal review required'
+                          ? 'bg-[#FEE2E2] text-[#B91C1C] border-[#FCA5A5]'
+                          : 'bg-[#FEF3C7] text-[#92400E] border-[#FCD34D]'
+                    }`}
+                  >
+                    {selectedSite.adminFeasibility?.status || 'Admin: Conditional'}
+                  </span>
+                  <span className="bg-[#F3F4F6] text-[#374151] px-2 py-0.5 rounded border border-[#E5E7EB]">
+                    Confidence: {selectedSite.distinctScores.dataConfidence}%
+                  </span>
+                </div>
+              )}
               <span className="px-2.5 py-0.5 rounded-full bg-[#F9F3EB] border border-[#414943]/10 font-mono text-xs text-[#1D1B17]">
                 Selected Analog:{' '}
                 <strong>

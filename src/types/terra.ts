@@ -3,10 +3,45 @@ export type PlanetBody = 'moon' | 'mars' | 'earth';
 export type WorkspaceView =
   | 'overview'
   | 'discovery'
-  | 'calendar'
+  | 'dossier'
+  | 'permits'
   | 'lab'
-  | 'cad'
-  | 'reports';
+  | 'reports'
+  | 'calendar'
+  | 'cad';
+
+export type AnalogueCategory =
+  | 'basalt_volcanic'
+  | 'arid_saline'
+  | 'cold_polar'
+  | 'impact_terrain'
+  | 'subsurface'
+  | 'operational_isolation';
+
+export type AdminStatusType =
+  | 'Feasible pathway identified'
+  | 'Conditional'
+  | 'Restricted / legal review required'
+  | 'Unverified';
+
+export interface SiteDistinctScores {
+  environmentalMatch: number; // 0..100
+  operationalFeasibility: number; // 0..100
+  administrativeReadiness: number; // 0..100
+  dataConfidence: number; // 0..100
+}
+
+export interface AdminFeasibilityDetail {
+  status: AdminStatusType;
+  statusReason: string;
+  authority: string;
+  jurisdiction: string;
+  leadTimeWeeks: number;
+  officialUrl: string;
+  permitsRequired: string[];
+  chinaWolfAmendmentWarning?: boolean;
+  indigenousConsultationRequired?: boolean;
+}
 
 export type ProvenanceTag =
   | 'VERIFIED NASA PDS / EARTHDATA'
@@ -137,6 +172,13 @@ export interface EarthCandidateSite {
   transectElevationsM: number[]; // 12 points across 10km transect
   fieldAccessNotes: string;
   provenance: ProvenanceTag;
+  analogueCategory?: AnalogueCategory;
+  whatItDoesNotReproduce?: string[];
+  geologySummary?: string;
+  mineralogyEvidence?: string;
+  operationalLogistics?: string;
+  distinctScores?: SiteDistinctScores;
+  adminFeasibility?: AdminFeasibilityDetail;
 }
 
 export type DimensionWeights = Record<DimensionKey, number>;

@@ -10,13 +10,13 @@ interface TopCommandBarProps {
   onQuickExport: () => void;
 }
 
-const WORKSPACE_TABS: { id: WorkspaceView; label: string }[] = [
-  { id: 'overview', label: '1. 3D Overview' },
-  { id: 'discovery', label: '2. Analog Discovery' },
-  { id: 'calendar', label: '3. Calendar' },
-  { id: 'lab', label: '4. Virtual Lab' },
-  { id: 'cad', label: '5. Hardware CAD' },
-  { id: 'reports', label: '6. Reports' },
+const PRIMARY_TABS: { id: WorkspaceView; label: string }[] = [
+  { id: 'overview', label: '1. Mission Brief' },
+  { id: 'discovery', label: '2. Discover Sites' },
+  { id: 'dossier', label: '3. Site Dossier' },
+  { id: 'permits', label: '4. Access & Permits' },
+  { id: 'lab', label: '5. Exposure Lab' },
+  { id: 'reports', label: '6. Validation & Evidence' },
 ];
 
 export const TopCommandBar: React.FC<TopCommandBarProps> = ({
@@ -28,8 +28,8 @@ export const TopCommandBar: React.FC<TopCommandBarProps> = ({
 }) => {
   return (
     <header className="no-print max-w-[1640px] w-full mx-auto px-4 sm:px-6 pt-4 pb-2 shrink-0">
-      <div className="bg-[#FFFFFF] rounded-full border border-[#414943]/10 shadow-soft-card px-4 sm:px-5 h-16 flex items-center justify-between gap-3">
-        {/* Left: Brand Wordmark + Studio Pill */}
+      <div className="bg-[#FFFFFF] rounded-2xl sm:rounded-full border border-[#414943]/10 shadow-soft-card px-4 sm:px-5 py-3 sm:py-0 sm:h-16 flex flex-wrap lg:flex-nowrap items-center justify-between gap-3">
+        {/* Left: Brand Wordmark + Subtitle */}
         <button
           type="button"
           onClick={() => onChangeView('overview')}
@@ -41,24 +41,24 @@ export const TopCommandBar: React.FC<TopCommandBarProps> = ({
           <span className="flex flex-col leading-tight">
             <span className="flex items-center gap-1.5">
               <span className="font-display text-base sm:text-lg font-bold tracking-tight text-[#1D1B17]">
-                ECHO
+                TERraOps
               </span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#FFF2EB] border border-[#FFDBCF] text-[10px] font-semibold text-[#E06A3B]">
-                Planetary Studio
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#EBF3FF] border border-[#BFDBFE] text-[10px] font-semibold text-[#1D4ED8]">
+                Artemis IV Readiness
               </span>
             </span>
             <span className="hidden xl:block text-[10px] font-medium text-[#696156]">
-              NASA PDS &amp; Analog Geological Intelligence
+              Artemis IV Analog Intelligence &amp; Equipment Exposure Lab
             </span>
           </span>
         </button>
 
-        {/* Center: 6-Mode Rounded Pill Navigation */}
+        {/* Center: 6 Primary Workflow Tabs */}
         <nav
           aria-label="Workspace views"
-          className="hidden lg:flex items-center gap-1 p-1 bg-[#F3EDE5] rounded-full border border-[#414943]/8 shrink-0"
+          className="flex items-center gap-1 p-1 bg-[#F3EDE5] rounded-full border border-[#414943]/8 overflow-x-auto max-w-full"
         >
-          {WORKSPACE_TABS.map((tab) => {
+          {PRIMARY_TABS.map((tab) => {
             const isActive = activeView === tab.id;
             return (
               <button
@@ -77,8 +77,33 @@ export const TopCommandBar: React.FC<TopCommandBarProps> = ({
           })}
         </nav>
 
-        {/* Right: Planetary Body Switcher + Telemetry Status + User Avatar */}
+        {/* Right: Auxiliary tools (Seasonal Calendar / 3D CAD) & Body Switcher */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          <div className="hidden 2xl:flex items-center gap-1 text-xs">
+            <button
+              type="button"
+              onClick={() => onChangeView('calendar')}
+              className={`px-2.5 py-1 rounded-full border text-[11px] font-medium cursor-pointer transition-all ${
+                activeView === 'calendar'
+                  ? 'bg-[#1D1B17] text-[#FFFFFF] border-[#1D1B17]'
+                  : 'bg-[#FFFFFF] text-[#696156] border-[#414943]/15 hover:text-[#1D1B17]'
+              }`}
+            >
+              Seasonal Window
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeView('cad')}
+              className={`px-2.5 py-1 rounded-full border text-[11px] font-medium cursor-pointer transition-all ${
+                activeView === 'cad'
+                  ? 'bg-[#1D1B17] text-[#FFFFFF] border-[#1D1B17]'
+                  : 'bg-[#FFFFFF] text-[#696156] border-[#414943]/15 hover:text-[#1D1B17]'
+              }`}
+            >
+              3D CAD Twin
+            </button>
+          </div>
+
           <div
             role="group"
             aria-label="Planetary body selector"

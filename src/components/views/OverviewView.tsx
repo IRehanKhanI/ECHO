@@ -218,7 +218,112 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         : 'bg-[#E06A3B]';
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr_360px] gap-6 items-start">
+    <div className="space-y-6">
+      {/* Module A · Artemis IV Mission Briefing & Decision-Support Panel */}
+      <div className="bg-[#FFFFFF] rounded-2xl border border-[#414943]/10 shadow-soft-card p-6 space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#414943]/8 pb-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full bg-[#EBF3FF] border border-[#BFDBFE] text-xs font-semibold text-[#1D4ED8]">
+                Module A · Mission Briefing &amp; Context
+              </span>
+              <span className="text-xs font-mono text-[#696156]">
+                Target: Early 2028 · Lunar South Pole
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-display font-bold text-[#1D1B17] tracking-tight">
+              Artemis IV Terrestrial Analog &amp; Equipment Readiness Platform
+            </h1>
+            <p className="text-xs sm:text-sm text-[#414943] max-w-4xl leading-relaxed">
+              Artemis IV targets an early-2028 crewed landing near the lunar South Pole, with four astronauts traveling
+              to lunar orbit and two descending to the surface in a commercial Human Landing System (HLS) for an
+              approximate one-week surface science mission featuring two ~2-hour Moonwalks with Axiom spacesuit testing.
+              TERraOps evaluates where and how equipment can be realistically, legally, and reliably tested at Earth analogue sites.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleOpenDiscovery}
+              className="px-4 py-2 rounded-full bg-[#184633] text-[#FFFFFF] text-xs font-semibold hover:bg-[#2A5A44] transition-all flex items-center gap-2 shadow-xs cursor-pointer"
+            >
+              <span>Proceed to Site Discovery</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* 3 Core Information Cards: Caveat, Equipment Objectives, Assumptions */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          {/* Card 1: Non-Negotiable Caveat */}
+          <div className="p-4 rounded-xl bg-[#FFF8F8] border border-[#FCA5A5] space-y-2">
+            <span className="font-bold text-[#991B1B] flex items-center gap-1.5 uppercase font-mono text-[11px]">
+              <X className="w-4 h-4 text-[#DC2626]" />
+              Non-Negotiable Mission Caveat
+            </span>
+            <p className="text-[#7F1D1D] leading-relaxed">
+              Earth cannot reproduce lunar vacuum (0 kPa), one-sixth gravity (0.166 g), the deep space radiation
+              environment, electrostatic dust behavior, or cryogenic temperatures (&lt;40 K in PSRs). An Earth site
+              reproduces selected, explicitly defined mechanical, geological, and operational characteristics only.
+            </p>
+            <p className="text-[11px] text-[#991B1B] italic pt-1 border-t border-[#FCA5A5]/40">
+              *Candidate Artemis III regions (e.g. Malapert Massif, Haworth) are historical reference areas, not
+              confirmed Artemis IV landing coordinates.
+            </p>
+          </div>
+
+          {/* Card 2: Mission-Aligned Equipment Testing Objectives */}
+          <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#414943]/10 space-y-2">
+            <span className="font-bold text-[#1D1B17] flex items-center gap-1.5 uppercase font-mono text-[11px]">
+              <Wrench className="w-4 h-4 text-[#184633]" />
+              Supported Equipment Use Cases
+            </span>
+            <ul className="space-y-1.5 text-[#414943]">
+              <li className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#184633]" />
+                <span>Surface geology and sample collection tools</span>
+              </li>
+              <li className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#184633]" />
+                <span>Rover mobility &amp; trafficability across steep slopes</span>
+              </li>
+              <li className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#184633]" />
+                <span>Hardware exposure to abrasive &amp; sulfur-bearing soils</span>
+              </li>
+              <li className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#184633]" />
+                <span>Low-sun grazing angle optical navigation sensors</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Card 3: Assumptions & Sources Ledger */}
+          <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#414943]/10 space-y-2">
+            <span className="font-bold text-[#1D1B17] flex items-center gap-1.5 uppercase font-mono text-[11px]">
+              <BookOpen className="w-4 h-4 text-[#C2673B]" />
+              Mission Assumptions &amp; Verified Sources
+            </span>
+            <div className="space-y-1.5 text-[11px] text-[#414943]">
+              <div>
+                <strong>NASA Artemis IV Mission Page:</strong> Early-2028 landing; commercial HLS.
+              </div>
+              <div>
+                <strong>NASA Surface Architecture (Oct 2026):</strong> Two ~2-hr EVAs; Axiom spacesuit testing.
+              </div>
+              <div>
+                <strong>NASA LOLA / Diviner PDS:</strong> South Pole DEM slope &amp; bolometric thermal datasets.
+              </div>
+              <div className="text-[10px] text-[#696156] pt-1 border-t border-[#414943]/10">
+                Notice: Independent prototype for equipment testing. Not an official NASA product. Human physiology out of scope.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr_360px] gap-6 items-start">
       {/* ===================== LEFT COLUMN ===================== */}
       <aside className="flex flex-col gap-4">
         {/* Card 1: ACTIVE STUDY REGION */}
@@ -1044,6 +1149,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 };
