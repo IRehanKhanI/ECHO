@@ -1,0 +1,144 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Outfit", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --color-surface: #FAF7F2;
+  --color-surface-warm: #FFF8F1;
+  --color-surface-low: #F9F3EB;
+  --color-surface-container: #F3EDE5;
+  --color-surface-high: #EDE5D8;
+  --color-surface-lowest: #FFFFFF;
+
+  --color-ink: #1D1B17;
+  --color-ink-muted: #696156;
+  --color-ink-variant: #414943;
+
+  --color-moss: #2A5A44;
+  --color-moss-deep: #0F422E;
+  --color-moss-soft: #EAF4EE;
+  --color-moss-fixed: #BAEED1;
+
+  --color-terracotta: #E06A3B;
+  --color-terracotta-deep: #A33E11;
+  --color-terracotta-soft: #FDF2EC;
+  --color-terracotta-fixed: #FFDBCF;
+
+  --color-amber: #D9822B;
+  --color-amber-bright: #E69A28;
+  --color-amber-soft: #FEF7EE;
+  --color-amber-fixed: #FFDDB7;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    font-family: var(--font-sans);
+    background-color: #FAF7F2;
+    color: #1D1B17;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .font-mono,
+  .tabular-nums {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.shadow-soft-card {
+  box-shadow: 0 12px 36px -6px rgba(45, 35, 20, 0.05),
+    0 4px 12px -2px rgba(45, 35, 20, 0.03);
+}
+
+.shadow-float-pill {
+  box-shadow: 0 16px 36px -8px rgba(42, 90, 68, 0.14),
+    0 4px 12px -2px rgba(45, 35, 20, 0.04);
+}
+
+/* Smooth rounded scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(105, 97, 86, 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(42, 90, 68, 0.45);
+}
+
+/* Tactile Terra Calm range sliders */
+input[type="range"].terra-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  background: #EDE5D8;
+  outline: none;
+}
+
+input[type="range"].terra-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #2A5A44;
+  border: 2.5px solid #FFFFFF;
+  box-shadow: 0 2px 6px rgba(42, 90, 68, 0.3);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+input[type="range"].terra-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.14);
+}
+
+input[type="range"].terra-slider.amber-thumb::-webkit-slider-thumb {
+  background: #D9822B;
+  box-shadow: 0 2px 6px rgba(217, 130, 43, 0.35);
+}
+
+input[type="range"].terra-slider.terracotta-thumb::-webkit-slider-thumb {
+  background: #E06A3B;
+  box-shadow: 0 2px 6px rgba(224, 106, 59, 0.35);
+}
+
+input[type="range"].terra-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #2A5A44;
+  border: 2.5px solid #FFFFFF;
+  box-shadow: 0 2px 6px rgba(42, 90, 68, 0.3);
+  cursor: pointer;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #FFFFFF !important;
+  }
+}

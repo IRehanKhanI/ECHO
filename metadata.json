@@ -1,0 +1,8 @@
+{
+  "name": "TERRA-X — AnalogWindow Planetary Studio",
+  "description": "Objective-first planetary analog discovery, seasonal analog windowing, 2.5D rover traverse lab, and 3D CAD hardware degradation simulator grounded in NASA LRO, MGS/Odyssey, Earthdata, and ESA Copernicus datasets.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
