@@ -329,22 +329,27 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
           lunar_slope_deg: activeTarget.meanSlopeDeg,
         });
 
-        // 1. Try local dev backend on 127.0.0.1:8000
+        const apiBase = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
+        // 1. Primary: Use Vercel rewrite / Vite dev proxy (/api/find-analog/)
         try {
-          response = await fetch('http://127.0.0.1:8000/api/find-analog/', {
+          response = await fetch(`${apiBase}/api/find-analog/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: payload,
             signal: controller.signal,
           });
         } catch {
-          // 2. Fallback to relative path
-          response = await fetch('/api/find-analog/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: payload,
-            signal: controller.signal,
-          });
+          // 2. Local fallback if running separate frontend/backend outside proxy
+          try {
+            response = await fetch('http://127.0.0.1:8000/api/find-analog/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: payload,
+              signal: controller.signal,
+            });
+          } catch {
+            response = null;
+          }
         }
 
         if (response && response.ok) {

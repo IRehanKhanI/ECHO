@@ -129,5 +129,9 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:3000',
 ]
 
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.vercel\.app$",
+]
+
 CORS_ALLOW_ALL_ORIGINS = DEBUG  # Allow all during development if frontend runs on dynamic port
 CORS_ALLOW_CREDENTIALS = True

@@ -283,19 +283,41 @@ export const VirtualLabView: React.FC<VirtualLabViewProps> = ({
     const controller = new AbortController();
     const simulateWear = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/simulate-wear/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sulfur_ppm: sulfurPpm,
-            exposure_days: exposureDays,
-          }),
-          signal: controller.signal,
-        });
+        const apiBase = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
+        let response: Response | null = null;
+        try {
+          response = await fetch(`${apiBase}/api/simulate-wear/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sulfur_ppm: sulfurPpm,
+              exposure_days: exposureDays,
+            }),
+            signal: controller.signal,
+          });
+        } catch {
+          // Dev fallback to local port 8000 if running directly outside proxy
+          try {
+            response = await fetch('http://127.0.0.1:8000/api/simulate-wear/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                sulfur_ppm: sulfurPpm,
+                exposure_days: exposureDays,
+              }),
+              signal: controller.signal,
+            });
+          } catch {
+            response = null;
+          }
+        }
+        if (!response || !response.ok) {
+          throw new Error('Local fallback');
+        }
         const payload = (await response.json()) as {
           predicted_degradation_mg_cm2?: number;
         };
-        if (!response.ok || payload.predicted_degradation_mg_cm2 === undefined) {
+        if (payload.predicted_degradation_mg_cm2 === undefined) {
           throw new Error('Local fallback');
         }
         setPredictedDegradation(payload.predicted_degradation_mg_cm2);
