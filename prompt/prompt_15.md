@@ -56,7 +56,15 @@ i am hosting this in the vercel if possible both django and the react
    - Configured `vite.config.ts` dev server proxy to forward `/api` calls to `process.env.BACKEND_URL || 'http://127.0.0.1:8000'` so local development and `vercel dev` work out of the box without code modifications.
    - Enhanced `wsgi.py` and `asgi.py` with `app = application` for serverless WSGI/ASGI entrypoint compatibility.
    - Updated `settings.py` CORS configuration to allow `.vercel.app` domains (`CORS_ALLOWED_ORIGIN_REGEXES = [r"^https://.*\.vercel\.app$"]`).
-3. **Verification**:
-   - `npm run lint` & `npm run build`: 0 TypeScript errors, 2056 modules transformed, built in 2.36s.
-   - `python manage.py test api`: 30/30 tests passed.
-   - `python manage.py collectstatic --noinput`: 154 files copied cleanly.
+3. **Vercel Build ERESOLVE Dependency Fix**:
+   - Error: `npm error ERESOLVE could not resolve peerOptional esbuild@"^0.27.0 || ^0.28.0" from vite@8.3.8 due to dev esbuild@"^0.25.0"`.
+   - Root cause: `package.json` had conflicting `"esbuild": "^0.25.0"` (unneeded, as Vite manages its own esbuild).
+   - Solution:
+     - Removed conflicting `"esbuild": "^0.25.0"`, `"express"`, and `"@types/express"` from `package.json`.
+     - Created [.npmrc](file:///home/pathan/Documents/Projects%202026/NASA%20SPACE%20APP/.npmrc) with `legacy-peer-deps=true`.
+     - Configured `"installCommand": "npm install --legacy-peer-deps"` in `vercel.json` under `services.app`.
+     - Cleanly updated `package-lock.json`.
+4. **Verification**:
+   - `npm run lint` & `npm run build`: 0 TypeScript errors, 2056 modules transformed, built in 2.19s.
+   - `python manage.py test api`: 30/30 tests passed in 0.128s.
+
