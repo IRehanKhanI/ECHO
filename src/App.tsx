@@ -6,11 +6,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { TelemetryStrip } from './components/layout/TelemetryStrip';
 import { TopCommandBar } from './components/layout/TopCommandBar';
+import { AdminPermitsView } from './components/views/AdminPermitsView';
 import { CalendarView } from './components/views/CalendarView';
 import { DiscoveryView } from './components/views/DiscoveryView';
 import { OverviewView } from './components/views/OverviewView';
 import { ReportsView } from './components/views/ReportsView';
 import { SimulatorView } from './components/views/SimulatorView';
+import { SiteDossierView } from './components/views/SiteDossierView';
 import { VirtualLabView } from './components/views/VirtualLabView';
 import {
   DIVINER_SEASONAL_BINS,
@@ -186,6 +188,27 @@ export default function App() {
             onSelectSite={setSelectedSiteId}
             onOpenCalendar={() => setActiveView('calendar')}
             analogResults={analogResults}
+            onOpenDossier={() => setActiveView('dossier')}
+          />
+        )}
+
+        {activeView === 'dossier' && (
+          <SiteDossierView
+            activeTarget={activeTarget}
+            selectedSite={selectedSite}
+            activeObjective={activeObjective}
+            rankedCandidates={rankedCandidates}
+            onSelectSite={setSelectedSiteId}
+            onNavigate={setActiveView}
+          />
+        )}
+
+        {activeView === 'permits' && (
+          <AdminPermitsView
+            selectedSite={selectedSite}
+            activeTarget={activeTarget}
+            activeObjective={activeObjective}
+            onNavigate={setActiveView}
           />
         )}
 
@@ -210,6 +233,7 @@ export default function App() {
             activeTarget={activeTarget}
             selectedSite={selectedSite}
             onLaunchSimulator={() => setActiveView('cad')}
+            onNavigate={setActiveView}
           />
         )}
 

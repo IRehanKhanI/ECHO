@@ -1,19 +1,49 @@
 import React, { useMemo, useState } from 'react';
 import {
   AlertTriangle,
+  BarChart2,
   CheckCircle2,
+  Database,
   Download,
   ExternalLink,
+  FileSpreadsheet,
   FileText,
+  Layers,
   Printer,
+  ShieldAlert,
   ShieldCheck,
+  Sparkles,
+  Table,
+  TrendingUp,
 } from 'lucide-react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ReferenceLine,
+  ResponsiveContainer,
+  Scatter,
+  ScatterChart,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import {
   MANDATORY_BREAKDOWN_ITEMS,
   MONTH_LABELS,
   PLANETARY_TARGETS,
   PROVENANCE_LEDGER,
 } from '../../data/planetaryData';
+import {
+  DATASET_AUDIT_META,
+  DATASET_DISTRIBUTION_STATS,
+  DATASET_SAMPLE_ROWS,
+  EMPIRICAL_VALIDATION_POINTS,
+  MODEL_BENCHMARK_RESULTS,
+  buildCsvReport,
+  buildHtmlReport,
+} from '../../data/validationData';
 import {
   optimizeMissionPortfolio,
   runBacktestValidation,
@@ -54,7 +84,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   analogResults,
 }) => {
   const [portfolioK, setPortfolioK] = useState<2 | 3>(3);
-  const [activeSection, setActiveSection] = useState<string>('summary');
+  const [activeSection, setActiveSection] = useState<string>('validation');
+  const [moduleFSubTab, setModuleFSubTab] = useState<'benchmarks' | 'visualizations' | 'dataAudit'>('benchmarks');
   const [exportNotice, setExportNotice] = useState<string | null>(null);
 
   const selectedScored = useMemo(
@@ -107,32 +138,81 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       target: activeTarget,
       objective: activeObjective,
       selectedEarthAnalog: selectedScored,
+      modelBenchmark: {
+        meta: DATASET_AUDIT_META,
+        models: MODEL_BENCHMARK_RESULTS,
+        distributionStats: DATASET_DISTRIBUTION_STATS,
+      },
       missionPortfolio: portfolio,
       whereAnalogyBreaksDown: breakdownItems,
       backtestValidation: backtests,
     };
     triggerDownload(
-      `echo-fidelity-${activeTarget.id}-${selectedSite.id}.json`,
+      `terraops-dossier-${activeTarget.id}-${selectedSite.id}.json`,
       JSON.stringify(payload, null, 2),
       'application/json',
     );
   };
 
+  const handleExportHtml = () => {
+    const html = buildHtmlReport(activeTarget.name, selectedSite.name);
+    triggerDownload(
+      `terraops-validation-report-${activeTarget.id}-${selectedSite.id}.html`,
+      html,
+      'text/html',
+    );
+  };
+
+  const handleExportCsv = () => {
+    const csv = buildCsvReport();
+    triggerDownload(
+      `terraops-benchmark-metrics-${activeTarget.id}.csv`,
+      csv,
+      'text/csv',
+    );
+  };
+
   const handleExportMarkdown = () => {
     const lines: string[] = [
-      `# ECHO Analog Fidelity Report`,
-      `**Target:** ${activeTarget.name} (${activeTarget.coordinates})`,
-      `**Earth Analog:** ${selectedSite.name} (${selectedSite.coordinates})`,
+      `# TERraOps — Artemis IV Validation & Evidence Report`,
+      `**Target Profile:** ${activeTarget.name} (${activeTarget.coordinates})`,
+      `**Earth Analogue Site:** ${selectedSite.name} (${selectedSite.coordinates})`,
       `**Test Objective:** ${activeObjective.name}`,
       `**Peak Window:** ${selectedScored?.windowSummary.startDateLabel} – ${selectedScored?.windowSummary.endDateLabel} (${selectedScored?.bestMonthScore.toFixed(1)}%)`,
       ``,
-      `## Multi-Site Mission Portfolio (${portfolioK} Sites · ${portfolio.combinedCoveragePct}% Combined Coverage)`,
+      `---`,
+      `## ⚠️ STATISTICAL CONFIDENCE & PROVENANCE NOTICE`,
+      `> "The model has been statistically evaluated on the supplied dataset, but independent physical validation has not been established."`,
+      `> Degradation predictions derive from regression models fitted on 1,000 synthetic laboratory test cycles across 200–1600 ppm sulfur exposure and 1–1000 days. Real flight qualification requires environmental vacuum chamber exposure.`,
+      ``,
+      `## 1. Model Comparison Benchmark`,
+      `| Model | Architecture | Test R² | Test MAE (mg/cm²) | Test RMSE (mg/cm²) | 5-Fold CV R² | Status |`,
+      `| :--- | :--- | :--- | :--- | :--- | :--- | :--- |`,
+      ...MODEL_BENCHMARK_RESULTS.map(
+        (m) =>
+          `| ${m.name} | ${m.architecture} | ${m.testR2.toFixed(2)}% | ${m.testMae.toFixed(4)} | ${m.testRmse.toFixed(4)} | ${m.cvR2.toFixed(2)}% | ${m.status} |`,
+      ),
+      ``,
+      `## 2. Dataset Audit (simulation_dataset.csv)`,
+      `- **Total Records:** ${DATASET_AUDIT_META.totalRows}`,
+      `- **Clean Benchmark Records:** ${DATASET_AUDIT_META.cleanBenchmarkRows} (13 outliers trimmed via 1.5*IQR bounds)`,
+      `- **Features:** sulfur_ppm, exposure_days -> degradation_mg_cm2`,
+      `- **Missing Values:** 0 | Duplicate Rows: 0`,
+      ``,
+      `| Metric | Sulfur (ppm) | Exposure (days) | Degradation (mg/cm²) |`,
+      `| :--- | :--- | :--- | :--- |`,
+      ...DATASET_DISTRIBUTION_STATS.map(
+        (s) =>
+          `| ${s.metric} | ${s.sulfur_ppm} | ${s.exposure_days} | ${s.degradation_mg_cm2} |`,
+      ),
+      ``,
+      `## 3. Multi-Site Mission Portfolio (${portfolioK} Sites · ${portfolio.combinedCoveragePct}% Combined Coverage)`,
       ...portfolio.allocations.map(
         (a) =>
           `- **${a.objectiveName}:** ${a.assignedSiteName} (${a.bestMonthLabel}) — ${a.score.toFixed(1)}%`,
       ),
       ``,
-      `## Per-Dimension Fidelity Breakdown`,
+      `## 4. Per-Dimension Fidelity Breakdown`,
       `| Dimension | Earth Value | Target Value | Score | Provenance |`,
       `| :--- | :--- | :--- | :--- | :--- |`,
       ...(selectedScored?.dimensionBreakdown.map(
@@ -140,14 +220,14 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           `| ${d.label} | ${d.earthValueFormatted} | ${d.targetValueFormatted} | ${d.score.toFixed(1)}% | ${d.provenance} |`,
       ) || []),
       ``,
-      `## Where the Analogy Breaks Down`,
+      `## 5. Where the Analogy Breaks Down`,
       ...breakdownItems.map(
         (b) =>
           `- **${b.pillar}:** Earth ${b.earthValue} vs. Target ${b.targetValue} — ${b.engineeringImpact}`,
       ),
     ];
     triggerDownload(
-      `echo-fidelity-${activeTarget.id}-${selectedSite.id}.md`,
+      `terraops-validation-${activeTarget.id}-${selectedSite.id}.md`,
       lines.join('\n'),
       'text/markdown',
     );
@@ -282,10 +362,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               </span>
               <div className="flex flex-col gap-1">
                 {[
-                  { id: 'summary', label: 'Executive Summary', targetId: 'report-summary' },
-                  { id: 'setcover', label: 'Multi-Site Set Cover', tag: `${portfolioK} Sites`, targetId: 'report-setcover' },
-                  { id: 'matrix', label: 'Dimension Matrix', tag: '8 Dim', targetId: 'report-matrix' },
-                  { id: 'gantt', label: 'Deployment Gantt', tag: '26–27', targetId: 'report-gantt' },
+                  { id: 'validation', label: '1. Model Validation (Mod F)', tag: 'ML Audit', targetId: 'report-validation' },
+                  { id: 'summary', label: '2. Executive Summary', targetId: 'report-summary' },
+                  { id: 'setcover', label: '3. Multi-Site Set Cover', tag: `${portfolioK} Sites`, targetId: 'report-setcover' },
+                  { id: 'matrix', label: '4. Dimension Matrix', tag: '8 Dim', targetId: 'report-matrix' },
+                  { id: 'gantt', label: '5. Deployment Gantt', tag: '26–27', targetId: 'report-gantt' },
                 ].map((nav) => (
                   <button
                     key={nav.id}
@@ -381,35 +462,43 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               </div>
             </div>
 
-            {/* Raw Data Exports */}
+            {/* Raw Data & Validation Exports */}
             <div className="space-y-2 pt-1">
               <div className="text-[10px] font-semibold uppercase tracking-wider text-[#696156]">
-                Export Mission Dossier
+                Export Validation &amp; Dossier
               </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="py-2.5 rounded-xl bg-[#F9F3EB] hover:bg-[#EDE5D8] text-[11px] font-semibold text-[#1D1B17] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <Printer className="w-3.5 h-3.5 text-[#0F422E]" />
-                  <span>PDF</span>
-                </button>
+              <div className="grid grid-cols-2 gap-1.5">
                 <button
                   type="button"
                   onClick={handleExportMarkdown}
                   className="py-2.5 rounded-xl bg-[#F9F3EB] hover:bg-[#EDE5D8] text-[11px] font-semibold text-[#1D1B17] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <FileText className="w-3.5 h-3.5 text-[#E06A3B]" />
-                  <span>MD</span>
+                  <span>Report (MD)</span>
                 </button>
                 <button
                   type="button"
-                  onClick={handleExportJson}
+                  onClick={handleExportHtml}
                   className="py-2.5 rounded-xl bg-[#F9F3EB] hover:bg-[#EDE5D8] text-[11px] font-semibold text-[#1D1B17] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  <Download className="w-3.5 h-3.5 text-[#0F422E]" />
-                  <span>JSON</span>
+                  <FileText className="w-3.5 h-3.5 text-[#0F422E]" />
+                  <span>Report (HTML)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportCsv}
+                  className="py-2.5 rounded-xl bg-[#F9F3EB] hover:bg-[#EDE5D8] text-[11px] font-semibold text-[#1D1B17] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-[#1D4ED8]" />
+                  <span>Metrics (CSV)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="py-2.5 rounded-xl bg-[#F9F3EB] hover:bg-[#EDE5D8] text-[11px] font-semibold text-[#1D1B17] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5 text-[#696156]" />
+                  <span>Print (PDF)</span>
                 </button>
               </div>
               {exportNotice && (
@@ -421,8 +510,402 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           </aside>
         </div>
 
-        {/* CENTER COLUMN: Set-Cover Portfolio Cards, Dimension Matrix, Deployment Gantt */}
+        {/* CENTER COLUMN: Module F Validation & Evidence, Set-Cover Portfolio, Dimension Matrix */}
         <main className="flex flex-col gap-6">
+          {/* MODULE F: VALIDATION & EVIDENCE REPORT SECTION */}
+          <section id="report-validation" className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+              <div>
+                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#EAF4EE] text-[#0F422E] font-mono text-[11px] font-semibold">
+                    MODULE F · VALIDATION &amp; EVIDENCE REPORT
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#FDF2EC] text-[#A33E11] font-mono text-[11px] font-semibold">
+                    Single Stressor: Sulfur Exposure
+                  </span>
+                  <span className="text-[11px] font-medium text-[#696156]">
+                    Dataset: simulation_dataset.csv (1,000 rows)
+                  </span>
+                </div>
+                <h2 className="font-display text-2xl font-bold text-[#1D1B17]">
+                  Empirical Dataset Audit &amp; Multi-Model Wear Benchmark
+                </h2>
+                <p className="text-xs text-[#696156] mt-1">
+                  Reproducible machine-learning evaluation across 5 regression architectures with outlier filtering and held-out cross validation.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="px-4 py-2 rounded-2xl bg-[#EAF4EE] border border-[#2A5A44]/20 text-center">
+                  <div className="text-[10px] font-semibold text-[#0F422E] uppercase">Holdout R²</div>
+                  <div className="font-display text-xl font-bold text-[#0F422E]">93.39%</div>
+                </div>
+                <div className="px-4 py-2 rounded-2xl bg-[#F9F3EB] border border-[#414943]/10 text-center">
+                  <div className="text-[10px] font-semibold text-[#696156] uppercase">5-Fold CV R²</div>
+                  <div className="font-display text-xl font-bold text-[#1D1B17]">92.6%</div>
+                </div>
+                <div className="px-4 py-2 rounded-2xl bg-[#FDF2EC] border border-[#E06A3B]/20 text-center">
+                  <div className="text-[10px] font-semibold text-[#A33E11] uppercase">RMSE Error</div>
+                  <div className="font-display text-xl font-bold text-[#A33E11]">±0.0494</div>
+                </div>
+              </div>
+            </div>
+
+            {/* HIGH VISIBILITY CONFIDENCE STATEMENT ALERT */}
+            <div className="p-4 rounded-2xl bg-[#FFF8E6] border border-[#F59E0B]/40 flex items-start gap-3.5 mb-6">
+              <ShieldAlert className="w-5 h-5 text-[#D97706] shrink-0 mt-0.5" />
+              <div className="text-xs text-[#92400E] leading-relaxed">
+                <div className="font-bold text-sm text-[#78350F] mb-0.5 flex items-center gap-2">
+                  <span>STATISTICAL CONFIDENCE &amp; PROVENANCE NOTICE</span>
+                  <span className="px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[10px] font-mono text-[#B45309]">MANDATORY CAVEAT</span>
+                </div>
+                <p className="font-semibold text-[#854D0E]">
+                  “The model has been statistically evaluated on the supplied dataset, but independent physical validation has not been established.”
+                </p>
+                <p className="mt-1 text-[11px] text-[#92400E]/90">
+                  Degradation predictions derive from regression models fitted on 1,000 synthetic laboratory test cycles across 200–1600 ppm sulfur exposure and 1–1000 days. 
+                  High statistical confidence (R² = 93.39%, 5-fold CV R² = 92.6%, RMSE = 0.0494 mg/cm²) indicates robust interpolation across test points, but does NOT certify real-world rover or spacesuit life under lunar high-vacuum or radiation conditions.
+                </p>
+              </div>
+            </div>
+
+            {/* Sub-view switcher tabs */}
+            <div className="flex flex-wrap items-center gap-2 border-b border-[#414943]/10 pb-3 mb-5">
+              <button
+                type="button"
+                onClick={() => setModuleFSubTab('benchmarks')}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
+                  moduleFSubTab === 'benchmarks'
+                    ? 'bg-[#0F422E] text-white'
+                    : 'bg-[#F9F3EB] text-[#414943] hover:bg-[#EDE5D8]'
+                }`}
+              >
+                1. Model Comparison Benchmark (5 Models)
+              </button>
+              <button
+                type="button"
+                onClick={() => setModuleFSubTab('visualizations')}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
+                  moduleFSubTab === 'visualizations'
+                    ? 'bg-[#0F422E] text-white'
+                    : 'bg-[#F9F3EB] text-[#414943] hover:bg-[#EDE5D8]'
+                }`}
+              >
+                2. Wear &amp; Residual Visualizations (Recharts)
+              </button>
+              <button
+                type="button"
+                onClick={() => setModuleFSubTab('dataAudit')}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
+                  moduleFSubTab === 'dataAudit'
+                    ? 'bg-[#0F422E] text-white'
+                    : 'bg-[#F9F3EB] text-[#414943] hover:bg-[#EDE5D8]'
+                }`}
+              >
+                3. Dataset Audit &amp; Summary Stats
+              </button>
+            </div>
+
+            {/* Sub-view 1: Model Benchmark Table */}
+            {moduleFSubTab === 'benchmarks' && (
+              <div className="space-y-4">
+                <div className="overflow-x-auto rounded-2xl border border-[#414943]/10">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-[#F9F3EB] text-[#414943] border-b border-[#414943]/10">
+                        <th className="py-2.5 px-3 font-semibold">Model Architecture</th>
+                        <th className="py-2.5 px-3 font-semibold">Feature Formulation</th>
+                        <th className="py-2.5 px-3 font-semibold text-right">Holdout R²</th>
+                        <th className="py-2.5 px-3 font-semibold text-right">MAE (mg/cm²)</th>
+                        <th className="py-2.5 px-3 font-semibold text-right">RMSE (mg/cm²)</th>
+                        <th className="py-2.5 px-3 font-semibold text-right">5-Fold CV R²</th>
+                        <th className="py-2.5 px-3 font-semibold text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#414943]/8">
+                      {MODEL_BENCHMARK_RESULTS.map((m) => {
+                        const isChosen = m.status === 'Chosen Production';
+                        return (
+                          <tr
+                            key={m.id}
+                            className={`transition-colors ${
+                              isChosen ? 'bg-[#EAF4EE]/60 font-medium' : 'hover:bg-[#FAF7F2]'
+                            }`}
+                          >
+                            <td className="py-2.5 px-3">
+                              <div className="font-semibold text-[#1D1B17] flex items-center gap-1.5">
+                                {isChosen && <Sparkles className="w-3.5 h-3.5 text-[#0F422E]" />}
+                                <span>{m.name}</span>
+                              </div>
+                              <div className="text-[10px] text-[#696156]">{m.notes}</div>
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-[11px] text-[#414943]">
+                              {m.architecture}
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-[11px] text-right text-[#1D1B17]">
+                              {m.testR2.toFixed(2)}%
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-[11px] text-right text-[#414943]">
+                              {m.testMae.toFixed(4)}
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-[11px] text-right font-semibold text-[#A33E11]">
+                              {m.testRmse.toFixed(4)}
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-[11px] text-right text-[#0F422E]">
+                              {m.cvR2.toFixed(2)}%
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              <span
+                                className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                  isChosen
+                                    ? 'bg-[#0F422E] text-white'
+                                    : m.status === 'Rejected'
+                                      ? 'bg-[#FEE2E2] text-[#B91C1C]'
+                                      : m.status === 'Underfitting'
+                                        ? 'bg-[#FEF3C7] text-[#92400E]'
+                                        : 'bg-[#F3EDE5] text-[#414943]'
+                                }`}
+                              >
+                                {m.status}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-[#F9F3EB] border border-[#414943]/8 text-[11px] text-[#414943] leading-relaxed">
+                  <span className="font-bold text-[#1D1B17]">Model Selection Rationale:</span> Random Forest Regressor (100 estimators, max depth 8, RobustScaler) was selected as the operational deployment model. While Gradient Boosting achieved slightly higher unregularized training metrics (94.12%), Random Forest demonstrated superior robustness against extreme outliers at the boundaries of the sulfur parameter space (RMSE: 0.0494 mg/cm², 5-fold CV R²: 92.6%).
+                </div>
+              </div>
+            )}
+
+            {/* Sub-view 2: Wear & Residual Visualizations */}
+            {moduleFSubTab === 'visualizations' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Chart 1: Actual vs Predicted */}
+                <div className="p-4 rounded-2xl bg-[#F9F3EB] border border-[#414943]/8">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <h3 className="font-display text-sm font-bold text-[#1D1B17]">
+                        Actual vs. Predicted Degradation
+                      </h3>
+                      <p className="text-[10px] text-[#696156]">
+                        Empirical test points vs Random Forest predictions · 1:1 perfect line
+                      </p>
+                    </div>
+                    <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-[#EAF4EE] text-[#0F422E] font-semibold">
+                      R² = 93.39%
+                    </span>
+                  </div>
+                  <div className="h-[240px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: 0 }}>
+                        <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" />
+                        <XAxis
+                          type="number"
+                          dataKey="actual"
+                          name="Actual"
+                          unit=" mg/cm²"
+                          tick={{ fill: '#696156', fontSize: 10 }}
+                          label={{ value: 'Actual Degradation (mg/cm²)', position: 'insideBottom', offset: -5, fill: '#696156', fontSize: 10 }}
+                        />
+                        <YAxis
+                          type="number"
+                          dataKey="predicted"
+                          name="Predicted"
+                          unit=" mg/cm²"
+                          tick={{ fill: '#696156', fontSize: 10 }}
+                          label={{ value: 'Predicted (mg/cm²)', angle: -90, position: 'insideLeft', fill: '#696156', fontSize: 10 }}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#1D1B17',
+                            border: 'none',
+                            borderRadius: '8px',
+                            color: '#FFFFFF',
+                            fontSize: '10px',
+                          }}
+                          formatter={(val: any, name: any) => [
+                            `${Number(val ?? 0).toFixed(4)} mg/cm²`,
+                            name === 'actual' ? 'Actual Degradation' : 'Predicted Degradation',
+                          ]}
+                        />
+                        <ReferenceLine y={0.15} stroke="#DC2626" strokeDasharray="4 4" label={{ value: 'Crit 0.15', fill: '#DC2626', fontSize: 9 }} />
+                        <Scatter name="Evaluation Test Points" data={EMPIRICAL_VALIDATION_POINTS} fill="#0F422E" />
+                      </ScatterChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Chart 2: Residual Error Distribution */}
+                <div className="p-4 rounded-2xl bg-[#F9F3EB] border border-[#414943]/8">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <h3 className="font-display text-sm font-bold text-[#1D1B17]">
+                        Residual Error Distribution (y - ŷ)
+                      </h3>
+                      <p className="text-[10px] text-[#696156]">
+                        Deviations centered at zero across exposure duration
+                      </p>
+                    </div>
+                    <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-[#FDF2EC] text-[#A33E11] font-semibold">
+                      RMSE ±0.0494
+                    </span>
+                  </div>
+                  <div className="h-[240px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={EMPIRICAL_VALIDATION_POINTS} margin={{ top: 10, right: 10, bottom: 10, left: 0 }}>
+                        <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="day"
+                          tick={{ fill: '#696156', fontSize: 10 }}
+                          label={{ value: 'Exposure Days', position: 'insideBottom', offset: -5, fill: '#696156', fontSize: 10 }}
+                        />
+                        <YAxis
+                          tick={{ fill: '#696156', fontSize: 10 }}
+                          label={{ value: 'Residual Error (mg/cm²)', angle: -90, position: 'insideLeft', fill: '#696156', fontSize: 10 }}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#1D1B17',
+                            border: 'none',
+                            borderRadius: '8px',
+                            color: '#FFFFFF',
+                            fontSize: '10px',
+                          }}
+                          formatter={(val: any) => [`${Number(val ?? 0).toFixed(4)} mg/cm²`, 'Residual']}
+                          labelFormatter={(d) => `Day ${d}`}
+                        />
+                        <ReferenceLine y={0} stroke="#414943" strokeWidth={1.5} />
+                        <Bar dataKey="residual">
+                          {EMPIRICAL_VALIDATION_POINTS.map((entry, idx) => (
+                            <Cell
+                              key={`cell-${idx}`}
+                              fill={entry.residual >= 0 ? '#166534' : '#DC2626'}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sub-view 3: Dataset Audit & Stats */}
+            {moduleFSubTab === 'dataAudit' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-3 rounded-2xl bg-[#F9F3EB] border border-[#414943]/8">
+                    <div className="text-[10px] text-[#696156] font-semibold uppercase">Total Source Records</div>
+                    <div className="font-display text-lg font-bold text-[#1D1B17] mt-0.5">1,000 Rows</div>
+                    <div className="text-[10px] text-[#696156]">simulation_dataset.csv</div>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-[#F9F3EB] border border-[#414943]/8">
+                    <div className="text-[10px] text-[#696156] font-semibold uppercase">Filtered Benchmark</div>
+                    <div className="font-display text-lg font-bold text-[#0F422E] mt-0.5">987 Rows</div>
+                    <div className="text-[10px] text-[#0F422E]">13 outliers trimmed (IQR)</div>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-[#F9F3EB] border border-[#414943]/8">
+                    <div className="text-[10px] text-[#696156] font-semibold uppercase">Feature Dimensions</div>
+                    <div className="font-display text-lg font-bold text-[#1D1B17] mt-0.5">3 Columns</div>
+                    <div className="text-[10px] text-[#696156]">2 features, 1 target</div>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-[#F9F3EB] border border-[#414943]/8">
+                    <div className="text-[10px] text-[#696156] font-semibold uppercase">Data Quality</div>
+                    <div className="font-display text-lg font-bold text-[#0F422E] mt-0.5">100% Complete</div>
+                    <div className="text-[10px] text-[#0F422E]">0 nulls, 0 duplicate rows</div>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto rounded-2xl border border-[#414943]/10">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-[#F9F3EB] text-[#414943] border-b border-[#414943]/10">
+                        <th className="py-2 px-3 font-semibold">Distribution Metric</th>
+                        <th className="py-2 px-3 font-semibold">Sulfur Concentration (ppm)</th>
+                        <th className="py-2 px-3 font-semibold">Exposure Duration (days)</th>
+                        <th className="py-2 px-3 font-semibold">Degradation (mg/cm²)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#414943]/8 font-mono text-[11px]">
+                      {DATASET_DISTRIBUTION_STATS.map((s, idx) => (
+                        <tr key={idx} className="hover:bg-[#FAF7F2]">
+                          <td className="py-2 px-3 font-sans font-semibold text-[#1D1B17]">{s.metric}</td>
+                          <td className="py-2 px-3 text-[#414943]">{s.sulfur_ppm}</td>
+                          <td className="py-2 px-3 text-[#414943]">{s.exposure_days}</td>
+                          <td className="py-2 px-3 font-semibold text-[#A33E11]">{s.degradation_mg_cm2}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div>
+                  <div className="text-xs font-bold text-[#1D1B17] mb-1.5">First 5 Sample Records (Head Preview):</div>
+                  <div className="overflow-x-auto rounded-xl border border-[#414943]/10">
+                    <table className="w-full text-left text-xs font-mono text-[11px]">
+                      <thead className="bg-[#F3EDE5] text-[#696156]">
+                        <tr>
+                          <th className="py-1.5 px-3">#</th>
+                          <th className="py-1.5 px-3">sulfur_ppm</th>
+                          <th className="py-1.5 px-3">exposure_days</th>
+                          <th className="py-1.5 px-3">degradation_mg_cm2</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#414943]/8">
+                        {DATASET_SAMPLE_ROWS.map((r) => (
+                          <tr key={r.row} className="hover:bg-[#FAF7F2]">
+                            <td className="py-1.5 px-3 text-[#696156]">{r.row}</td>
+                            <td className="py-1.5 px-3">{r.sulfur_ppm.toFixed(2)}</td>
+                            <td className="py-1.5 px-3">{r.exposure_days.toFixed(2)}</td>
+                            <td className="py-1.5 px-3 font-semibold text-[#A33E11]">{r.degradation_mg_cm2.toFixed(4)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Direct Export Action Toolbar */}
+            <div className="mt-5 pt-4 border-t border-[#414943]/10 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs text-[#696156]">
+                <ShieldCheck className="w-4 h-4 text-[#0F422E]" />
+                <span>Auditable validation packages ready for mission review</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportMarkdown}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F9F3EB] hover:bg-[#EDE5D8] text-xs font-semibold text-[#1D1B17] border border-[#414943]/15 transition-colors cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5 text-[#E06A3B]" />
+                  <span>Download Report (MD)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportHtml}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#EAF4EE] hover:bg-[#BAEED1]/70 text-xs font-semibold text-[#0F422E] border border-[#2A5A44]/20 transition-colors cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5 text-[#0F422E]" />
+                  <span>Download HTML</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportCsv}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#EFF6FF] hover:bg-[#DBEAFE] text-xs font-semibold text-[#1D4ED8] border border-[#93C5FD] transition-colors cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-[#1D4ED8]" />
+                  <span>Download CSV Metrics</span>
+                </button>
+              </div>
+            </div>
+          </section>
           {/* Card 1: Weighted Set-Cover Portfolio Recommendation */}
           <section id="report-summary" className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/8 shadow-soft-card p-6">
             <div id="report-setcover" className="flex flex-wrap items-start justify-between gap-3 mb-4">

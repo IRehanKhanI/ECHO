@@ -150,7 +150,7 @@ export const TopCommandBar: React.FC<TopCommandBarProps> = ({
 
       {/* Mobile navigation row */}
       <div className="flex lg:hidden overflow-x-auto gap-1 p-1 mt-2 bg-[#F3EDE5] rounded-full border border-[#414943]/8">
-        {WORKSPACE_TABS.map((tab) => {
+        {PRIMARY_TABS.map((tab) => {
           const isActive = activeView === tab.id;
           return (
             <button
