@@ -85,6 +85,9 @@ def get_local_analog_matches(
 class FindAnalogView(APIView):
     """Return the Earth locations closest to the lunar target vector."""
 
+    def post(self, request: Any) -> Response:
+        return self.get(request)
+
     def get(self, request: Any) -> Response:
         matches = None
 

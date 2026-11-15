@@ -4,14 +4,11 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { TelemetryStrip } from './components/layout/TelemetryStrip';
 import { TopCommandBar } from './components/layout/TopCommandBar';
 import { AdminPermitsView } from './components/views/AdminPermitsView';
-import { CalendarView } from './components/views/CalendarView';
 import { DiscoveryView } from './components/views/DiscoveryView';
 import { OverviewView } from './components/views/OverviewView';
 import { ReportsView } from './components/views/ReportsView';
-import { SimulatorView } from './components/views/SimulatorView';
 import { SiteDossierView } from './components/views/SiteDossierView';
 import { VirtualLabView } from './components/views/VirtualLabView';
 import {
@@ -135,9 +132,6 @@ export default function App() {
     if (currentStepIndex >= 0 && currentStepIndex < PRIMARY_WORKFLOW_STEPS.length - 1) {
       setActiveView(PRIMARY_WORKFLOW_STEPS[currentStepIndex + 1]);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else if (activeView === 'calendar' || activeView === 'cad') {
-      setActiveView('reports');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -197,17 +191,7 @@ export default function App() {
         onPrevStep={handlePrevStep}
       />
 
-      <TelemetryStrip
-        target={activeTarget}
-        selectedSite={selectedSite}
-        objective={activeObjective}
-        noveltyOnly={noveltyOnly}
-        activeView={activeView}
-        analogResults={analogResults}
-        onNextStep={handleNextStep}
-      />
-
-      <main className="max-w-[1640px] w-full mx-auto px-4 sm:px-6 pb-8 flex-1">
+      <main className="max-w-[1640px] w-full mx-auto px-4 sm:px-6 pt-4 pb-8 flex-1">
         {activeView === 'overview' && (
           <OverviewView
             activeBody={activeBody}
@@ -246,7 +230,7 @@ export default function App() {
             rankedCandidates={rankedCandidates}
             selectedSite={selectedSite}
             onSelectSite={setSelectedSiteId}
-            onOpenCalendar={() => setActiveView('calendar')}
+            onOpenCalendar={() => setActiveView('dossier')}
             analogResults={analogResults}
             onOpenDossier={() => setActiveView('dossier')}
             onNavigate={setActiveView}
@@ -273,36 +257,12 @@ export default function App() {
           />
         )}
 
-        {activeView === 'calendar' && (
-          <CalendarView
-            activeTarget={activeTarget}
-            activeObjective={activeObjective}
-            rankedCandidates={rankedCandidates}
-            selectedSite={selectedSite}
-            onSelectSite={setSelectedSiteId}
-            seasonalBinIdx={seasonalBinIdx}
-            onChangeSeasonalBin={setSeasonalBinIdx}
-            thresholdPct={thresholdPct}
-            onChangeThreshold={setThresholdPct}
-            onLaunchLab={() => setActiveView('lab')}
-            analogResults={analogResults}
-          />
-        )}
-
         {activeView === 'lab' && (
           <VirtualLabView
             activeTarget={activeTarget}
             selectedSite={selectedSite}
-            onLaunchSimulator={() => setActiveView('cad')}
+            onLaunchSimulator={() => setActiveView('reports')}
             onNavigate={setActiveView}
-          />
-        )}
-
-        {activeView === 'cad' && (
-          <SimulatorView
-            selectedSite={selectedSite}
-            onOpenReports={() => setActiveView('reports')}
-            analogResults={analogResults}
           />
         )}
 
@@ -324,7 +284,7 @@ export default function App() {
         <div className="bg-[#FFFFFF] rounded-full border border-[#414943]/8 shadow-soft-card px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-[#696156]">
           <div className="flex items-center gap-2.5 truncate">
             <span className="font-display font-bold text-[#1D1B17]">
-              ECHO Workstation
+              TERraOps
             </span>
             <span aria-hidden="true">·</span>
             <span className="truncate">

@@ -1,31 +1,19 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
-  Award,
   CheckCircle2,
-  ChevronRight,
-  Compass,
-  ExternalLink,
   FileCheck,
-  FileText,
   Globe,
-  Info,
-  Layers,
   MapPin,
   Mountain,
   Navigation,
   Radio,
-  ShieldAlert,
   ShieldCheck,
   Sparkles,
   Thermometer,
-  ThermometerSnowflake,
   Truck,
-  Wind,
-  Wrench,
-  X,
 } from 'lucide-react';
 import {
   EarthCandidateSite,
@@ -40,7 +28,7 @@ import { SITE_BIOME_ICONS, SITE_COUNTRY_FLAGS, SITE_ONE_LINERS } from './Discove
 interface SiteDossierViewProps {
   activeTarget: PlanetaryTarget;
   selectedSite: EarthCandidateSite;
-  activeObjective: ObjectiveProfile;
+  activeObjective?: ObjectiveProfile;
   rankedCandidates: ScoredCandidate[];
   onSelectSite: (siteId: string) => void;
   onNavigate: (view: WorkspaceView) => void;
@@ -49,23 +37,20 @@ interface SiteDossierViewProps {
 export const SiteDossierView: React.FC<SiteDossierViewProps> = ({
   activeTarget,
   selectedSite,
-  activeObjective,
   rankedCandidates,
   onSelectSite,
   onNavigate,
 }) => {
-  const [activeTab, setActiveTab] = useState<'geology' | 'logistics' | 'equipment'>('geology');
-
   // Find candidate scored object
   const scored =
     rankedCandidates.find((c) => c.site.id === selectedSite.id) ||
     rankedCandidates[0];
 
-  // Distinct auditable scores (strictly kept separate, never collapsed into fake single score)
+  // Distinct scores
   const scores = selectedSite.distinctScores || {
-    environmentalMatch: Math.round(scored?.bestMonthScore || 85),
-    operationalFeasibility: 72,
-    administrativeReadiness: 70,
+    environmentalMatch: Math.round(scored?.bestMonthScore || 86),
+    operationalFeasibility: 48,
+    administrativeReadiness: 65,
     dataConfidence: 94,
   };
 
@@ -74,90 +59,113 @@ export const SiteDossierView: React.FC<SiteDossierViewProps> = ({
     statusReason: 'Scientific research fieldwork permit and access authorization required.',
     authority: 'National Land Management Agency',
     jurisdiction: selectedSite.country,
-    leadTimeWeeks: 8,
+    leadTimeWeeks: 14,
     officialUrl: 'https://www.nasa.gov/',
     permitsRequired: ['Scientific Fieldwork Permit', 'Land Access Notice'],
   };
 
-  // Flag and biome
   const flag = SITE_COUNTRY_FLAGS[selectedSite.id] || '🌐';
   const biomeIcon = SITE_BIOME_ICONS[selectedSite.id] || '🏔️';
   const oneLiner =
     SITE_ONE_LINERS[selectedSite.id] ||
     selectedSite.geologySummary ||
-    'High-fidelity terrestrial analog for lunar surface equipment qualification.';
+    'High-altitude terrestrial analog for lunar surface equipment qualification.';
+  const minTemp = Math.min(...selectedSite.monthlyMinTempC);
 
-  // Side-by-side matrices:
-  // 1. What it DOES accurately reproduce
-  const doesReproduceItems = [
-    {
-      title: 'Regolith Geomechanics & Wheel Traction',
-      detail:
-        'Fragmented basaltic regolith, loose tephra, and ice-cemented sandstone test wheel slip, sinkage, and grouser tractive efficiency on slopes up to ' +
-        selectedSite.slopeDeg +
-        '°.',
-      tag: 'Mobility & Grousers',
-    },
-    {
-      title: 'Cryogenic Diurnal Thermal Stress',
-      detail:
-        'Diurnal thermal cycling (up to ' +
-        Math.max(...selectedSite.monthlyDiurnalDeltaK) +
-        ' K amplitude) subjects structural joints, seal elastomers, and electronics to realistic thermal shock.',
-      tag: 'Thermal Mechanics',
-    },
-    {
-      title: 'Sulfur & Acidic Sulfate Exposure',
-      detail:
-        'High natural concentrations of native sulfur (S8) and acidic sulfate evaporites simulate the corrosive mineralogy and abrasive mineral crusts of volatile-rich regolith.',
-      tag: 'Chemical Stress',
-    },
-    {
-      title: 'Abrasive Dust & Particulate Ingress',
-      detail:
-        'Fine aeolian and crushed mineral grains test seal integrity, optical lens degradation, radiator coatings, and mechanical rotary bearing wear.',
-      tag: 'Dust Mitigation',
-    },
-    {
-      title: 'Autonomous Navigation & Boulder Avoidance',
-      detail:
-        'Rugged terrain with surface roughness (' +
-        selectedSite.rmsRoughnessM +
-        ' m RMS) stresses hazard-detection stereo cameras, lidar SLAM algorithms, and autonomous path planners.',
-      tag: 'Autonomous Navigation',
-    },
-  ];
+  // Logistics facts helper
+  const getLogisticsFacts = (siteId: string) => {
+    switch (siteId) {
+      case 'salar_gorbea':
+        return {
+          route: 'High-clearance 4WD from Copiapó (6 hours) via Route 31-CH across High Puna Plateau.',
+          airstrip: 'Desierto de Atacama Airport (CPO) / Chamonate Airfield (~6 hr 4WD)',
+          hospital: 'Copiapó Regional Hospital (~6 hours by road or emergency helicopter medevac)',
+        };
+      case 'atacama_yungay':
+        return {
+          route: 'Paved highway from Antofagasta (1.5 hours) plus unpaved desert spur road.',
+          airstrip: 'Andrés Sabella Gálvez International Airport (ANF), Antofagasta (~1.5 hr drive)',
+          hospital: 'Antofagasta Regional Hospital Level 1 (< 1.5 hours drive)',
+        };
+      case 'univ_valley':
+        return {
+          route: 'Helicopter sling load or tracked Hagglunds from McMurdo Station (45 min flight).',
+          airstrip: 'Pegasus Field / Phoenix Airfield (LC-130 Hercules skiway), Antarctica',
+          hospital: 'McMurdo Station Medical Clinic / Christchurch medevac protocol',
+        };
+      case 'black_point':
+        return {
+          route: 'All-weather gravel road from Flagstaff, Arizona (1 hour drive via US-89).',
+          airstrip: 'Flagstaff Pulliam Airport (FLG, 1 hr drive) or Phoenix Sky Harbor (PHX, 2.5 hr)',
+          hospital: 'Flagstaff Medical Center Level 1 Trauma (< 1 hour drive)',
+        };
+      case 'haughton_crater':
+        return {
+          route: 'Charter Twin Otter flight from Resolute Bay directly to Devon Island gravel airstrip.',
+          airstrip: 'Resolute Bay Airport (YRB) / Haughton River unimproved dirt strip',
+          hospital: 'Resolute Bay Nursing Station / Air ambulance medevac to Iqaluit',
+        };
+      case 'death_valley':
+        return {
+          route: 'Paved state highway (CA-190) from Las Vegas (2.5 hours drive).',
+          airstrip: 'Furnace Creek Airport (L06) or Las Vegas Harry Reid Airport (LAS)',
+          hospital: 'Pahrump Regional Medical Center / Las Vegas Level 1 Trauma (< 2 hours)',
+        };
+      case 'kilauea':
+        return {
+          route: 'Paved road access within Hawaii Volcanoes National Park (45 min from Hilo).',
+          airstrip: 'Hilo International Airport (ITO, 45 min drive)',
+          hospital: 'HMC Hilo Medical Center (< 45 minutes drive)',
+        };
+      case 'pilbara':
+        return {
+          route: '4WD mining access track from Newman or Port Hedland, Western Australia (3 hours).',
+          airstrip: 'Newman Airport (ZNE, 3 hr drive)',
+          hospital: 'Newman Hospital (< 3 hours) / Royal Flying Doctor Service (RFDS)',
+        };
+      case 'mdrs_utah':
+        return {
+          route: 'Gravel access road from Hanksville, Utah (15 minutes drive).',
+          airstrip: 'Canyonlands Regional Airport (CNY), Moab, Utah (1.5 hr drive)',
+          hospital: 'Moab Regional Hospital (< 1.5 hours drive)',
+        };
+      case 'negev_dmars':
+        return {
+          route: 'Paved road to Mitzpe Ramon, followed by 4WD desert trail into Makhtesh Ramon.',
+          airstrip: 'Ramon Airport (ETM) / Beersheba Airfield',
+          hospital: 'Soroka Medical Center, Beersheba (< 1.5 hours drive)',
+        };
+      case 'svalbard':
+        return {
+          route: 'Snowmobile or boat charter from Longyearbyen (2-3 hours depending on season).',
+          airstrip: 'Svalbard Airport, Longyearbyen (LYR)',
+          hospital: 'Longyearbyen Hospital (< 2 hours) / Tromsø medevac flight',
+        };
+      default:
+        return {
+          route: selectedSite.operationalLogistics || selectedSite.fieldAccessNotes || '4WD transport road, ~4-6 hours from regional transport hub.',
+          airstrip: 'Nearest regional commercial or charter airstrip',
+          hospital: 'Regional emergency medical facility & air medevac coordination',
+        };
+    }
+  };
 
-  // 2. What it CANNOT reproduce (Mandatory physical limitations audit)
-  const cannotReproduceItems = selectedSite.whatItDoesNotReproduce || [
-    'Lunar vacuum: Earth atmospheric pressure is ~62-101 kPa vs 0 kPa on the Moon. Prevents testing of vacuum outgassing and cold-welding.',
-    'Lunar 1/6th gravity: Earth 1.0 g gravity imposes 6x higher vehicle weight, modifying rover suspension compression and roll-over tipping points.',
-    'Solar cosmic radiation & solar wind sputtering: Earth magnetosphere and atmosphere provide >100x shielding against GCR and solar proton events.',
-    'Deep PSR cryogenic cold (<40 K): Permanently Shadowed Regions reach 40 K (-233°C). Terrestrial winter lows reach ~210-230 K (-63°C to -43°C).',
-    'Electrostatic dust levitation: Ambient atmospheric humidity suppresses electrostatic grain charging and levitation dynamics.',
-  ];
-
-  // Circular progress calculations for Environmental Match
-  const radius = 28;
-  const circumference = 2 * Math.PI * radius;
-  const envStrokeOffset =
-    circumference - (Math.min(100, Math.max(0, scores.environmentalMatch)) / 100) * circumference;
+  const logistics = getLogisticsFacts(selectedSite.id);
 
   return (
-    <div className="space-y-6 pb-24">
-      {/* ==================== HERO SITE CARD ==================== */}
-      <div className="bg-[#FFFFFF] rounded-2xl border border-[#414943]/10 shadow-soft-card p-6">
-        {/* Navigation & Target Breadcrumb */}
+    <div className="space-y-6 pb-12">
+      {/* ==================== HERO SITE HEADER ==================== */}
+      <div className="bg-[#FFFFFF] rounded-2xl border border-[#414943]/10 shadow-soft-card p-6 space-y-5">
+        {/* Navigation Breadcrumb */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#414943]/8 pb-4">
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="px-2.5 py-0.5 rounded-full bg-[#EAF4EE] border border-[#2A5A44]/20 font-bold text-[#0F422E]">
-              Module 3 · Site Dossier &amp; In-Depth Analogue Audit
+              Module 3 · Site Dossier
             </span>
             <span className="text-[#696156]">
-              Target Reference:{' '}
-              <strong className="text-[#1D1B17] font-semibold">{activeTarget.name}</strong> (
-              {activeTarget.body.toUpperCase()} South Pole)
+              Target: <strong className="text-[#1D1B17] font-semibold">{activeTarget.name}</strong> ({activeTarget.body.toUpperCase()} South Pole)
             </span>
+            <ProvenanceBadge tag="VERIFIED NASA PDS / EARTHDATA" />
           </div>
 
           <div className="flex items-center gap-2">
@@ -167,21 +175,21 @@ export const SiteDossierView: React.FC<SiteDossierViewProps> = ({
               className="px-3.5 py-1.5 rounded-xl border border-[#414943]/15 text-xs font-semibold text-[#1D1B17] hover:bg-[#FAF7F2] transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5 text-[#696156]" />
-              <span>← Back to Discover Sites</span>
+              <span>Back to Discover</span>
             </button>
             <button
               type="button"
               onClick={() => onNavigate('permits')}
               className="px-4 py-1.5 rounded-xl bg-[#184633] text-white text-xs font-semibold hover:bg-[#2A5A44] transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
             >
-              <span>Check Access &amp; Permits</span>
+              <span>Permits &amp; Clearance</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
-        {/* Hero Title & Identity */}
-        <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
+        {/* Location Identity, Coordinates & Quick Switcher */}
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
               <span className="text-3xl p-2 rounded-2xl bg-[#FAF7F2] border border-[#414943]/10">
@@ -200,7 +208,7 @@ export const SiteDossierView: React.FC<SiteDossierViewProps> = ({
               </div>
             </div>
 
-            {/* Geographical Badges */}
+            {/* Coordinates & Elevation Badges */}
             <div className="flex flex-wrap items-center gap-2 text-xs pt-1">
               <span className="px-3 py-1 rounded-lg bg-[#FAF7F2] border border-[#414943]/10 font-mono text-[#1D1B17] flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-[#E06A3B]" />
@@ -210,15 +218,15 @@ export const SiteDossierView: React.FC<SiteDossierViewProps> = ({
                 <Mountain className="w-3.5 h-3.5 text-[#184633]" />
                 <span>Elevation: {selectedSite.elevationM.toLocaleString()} m ASL</span>
               </span>
-              <span className="px-3 py-1 rounded-lg bg-[#FFF8F1] border border-[#FFDBCF] font-semibold text-[#A33E11] flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#E06A3B]" />
+              <span className="px-3 py-1 rounded-lg bg-[#FAF7F2] border border-[#414943]/10 text-xs font-medium text-[#414943] flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-[#0F422E]" />
                 <span>Archetype: {selectedSite.biomeCharacter}</span>
               </span>
             </div>
           </div>
 
-          {/* Quick Candidate Switcher: Compare other shortlisted sites */}
-          <div className="bg-[#FAF7F2] p-3 rounded-xl border border-[#414943]/10 space-y-1.5">
+          {/* Quick Switch Candidate Pill Bar */}
+          <div className="bg-[#FAF7F2] p-2.5 rounded-xl border border-[#414943]/10 space-y-1.5">
             <span className="text-[10px] font-mono uppercase tracking-wider text-[#696156] block">
               Quick Switch Candidate:
             </span>
@@ -238,7 +246,7 @@ export const SiteDossierView: React.FC<SiteDossierViewProps> = ({
                     }`}
                   >
                     <span>{cFlag}</span>
-                    <span className="truncate max-w-[100px]">{cand.site.name.split(' (')[0]}</span>
+                    <span className="truncate max-w-[85px]">{cand.site.name.split(' (')[0]}</span>
                     <span className="font-mono text-[10px] opacity-80">
                       {Math.round(cand.bestMonthScore)}%
                     </span>
@@ -249,167 +257,105 @@ export const SiteDossierView: React.FC<SiteDossierViewProps> = ({
           </div>
         </div>
 
-        {/* 1-Sentence Plain-English Summary */}
-        <p className="mt-4 text-xs sm:text-sm text-[#414943] leading-relaxed bg-[#FAF7F2] p-3.5 rounded-xl border border-[#414943]/8">
+        {/* 1-Sentence Summary */}
+        <p className="text-xs sm:text-sm text-[#414943] leading-relaxed bg-[#FAF7F2] p-3 rounded-xl border border-[#414943]/8">
           <strong className="text-[#1D1B17]">Mission Analogue Suitability:</strong> {oneLiner}
         </p>
 
-        {/* ==================== THE 4 DISTINCT AUDITABLE SCORES ==================== */}
-        {/* Strictly separate, never collapsed into one artificial composite percentage */}
-        <div className="mt-6 pt-5 border-t border-[#414943]/8">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-            <h2 className="text-xs font-bold font-mono tracking-wider text-[#696156] uppercase">
-              Auditable 4-Pillar Evaluation (Strictly Kept Separate · No Artificial Composite)
-            </h2>
-            <span className="text-[11px] text-[#696156] italic">
-              *Evaluated against public Artemis IV equipment testing objectives
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* ==================== 4 CLEAR SCORE BADGES IN A SINGLE CLEAN ROW ==================== */}
+        <div className="pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             {/* 1. Environmental Match */}
-            <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#414943]/10 flex flex-col justify-between space-y-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-xs font-bold text-[#1D1B17] flex items-center gap-1.5">
-                    <Mountain className="w-3.5 h-3.5 text-[#184633]" />
-                    <span>1. Environmental Match</span>
-                  </span>
-                  <span className="text-[11px] text-[#696156] block mt-0.5">
-                    Terrain &amp; thermal fidelity
-                  </span>
-                </div>
-                {/* Circular Gauge */}
-                <div className="relative w-14 h-14 shrink-0 flex items-center justify-center">
-                  <svg className="w-14 h-14 -rotate-90" viewBox="0 0 64 64">
-                    <circle
-                      cx="32"
-                      cy="32"
-                      r={radius}
-                      fill="none"
-                      stroke="#E5DCCE"
-                      strokeWidth="5"
-                    />
-                    <circle
-                      cx="32"
-                      cy="32"
-                      r={radius}
-                      fill="none"
-                      stroke="#184633"
-                      strokeWidth="5"
-                      strokeDasharray={circumference}
-                      strokeDashoffset={envStrokeOffset}
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <span className="absolute font-mono font-bold text-xs text-[#184633]">
-                    {scores.environmentalMatch}%
-                  </span>
-                </div>
+            <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#414943]/10 flex flex-col justify-between space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[#1D1B17] flex items-center gap-1.5">
+                  <span>🌿</span>
+                  <span>Environmental Match</span>
+                </span>
+                <span className="font-mono font-bold text-base text-[#0F422E]">
+                  {scores.environmentalMatch}%
+                </span>
               </div>
-              <div className="text-[11px] text-[#414943] leading-snug border-t border-[#414943]/8 pt-2">
-                Evaluates slope ({selectedSite.slopeDeg}°), roughness ({selectedSite.rmsRoughnessM}m
-                RMS), and diurnal cold-soak thermal similarity.
+              <div className="w-full bg-[#E5DCCE] h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-[#0F422E] h-full rounded-full transition-all"
+                  style={{ width: `${scores.environmentalMatch}%` }}
+                />
+              </div>
+              <div className="text-[11px] text-[#696156]">
+                Terrain relief ({selectedSite.slopeDeg}° slope), roughness &amp; thermal cycling
               </div>
             </div>
 
-            {/* 2. Operational Feasibility */}
-            <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#414943]/10 flex flex-col justify-between space-y-3">
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1D1B17] flex items-center gap-1.5">
-                    <Truck className="w-3.5 h-3.5 text-[#059669]" />
-                    <span>2. Operational Feasibility</span>
-                  </span>
-                  <span className="font-mono font-bold text-base text-[#059669]">
-                    {scores.operationalFeasibility}/100
-                  </span>
-                </div>
-                <span className="text-[11px] text-[#696156] block mt-0.5">
-                  Logistics, road access &amp; medevac
+            {/* 2. Operations */}
+            <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#414943]/10 flex flex-col justify-between space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[#1D1B17] flex items-center gap-1.5">
+                  <span>🚙</span>
+                  <span>Operations</span>
                 </span>
-                <div className="w-full bg-[#E5DCCE] h-2 rounded-full overflow-hidden mt-3">
-                  <div
-                    className="bg-[#059669] h-full rounded-full transition-all"
-                    style={{ width: `${scores.operationalFeasibility}%` }}
-                  />
-                </div>
+                <span className="font-mono font-bold text-base text-[#0284C7]">
+                  {scores.operationalFeasibility}/100
+                </span>
               </div>
-              <div className="text-[11px] text-[#414943] leading-snug border-t border-[#414943]/8 pt-2">
-                Heavy transport roads, airstrip access, emergency medical evacuation route &amp;
-                satellite comms.
+              <div className="w-full bg-[#E5DCCE] h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-[#0284C7] h-full rounded-full transition-all"
+                  style={{ width: `${scores.operationalFeasibility}%` }}
+                />
+              </div>
+              <div className="text-[11px] text-[#696156]">
+                Heavy transport roads, airstrip access &amp; field power support
               </div>
             </div>
 
-            {/* 3. Administrative Readiness */}
-            <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#414943]/10 flex flex-col justify-between space-y-3">
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1D1B17] flex items-center gap-1.5">
-                    <FileCheck className="w-3.5 h-3.5 text-[#D97706]" />
-                    <span>3. Administrative Readiness</span>
-                  </span>
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      admin.status === 'Feasible pathway identified'
-                        ? 'bg-[#DEF7EC] text-[#03543F] border border-[#31C48D]/30'
-                        : admin.status === 'Restricted / legal review required'
-                          ? 'bg-[#FDE8E8] text-[#9B1C1C] border border-[#F87171]/30'
-                          : 'bg-[#FEF08A] text-[#713F12] border border-[#FACC15]/30'
-                    }`}
-                  >
-                    {String(admin.status).split(' ')[0]}
-                  </span>
-                </div>
-                <span className="text-[11px] text-[#696156] block mt-0.5">
-                  Regulatory permits &amp; land rights
+            {/* 3. Permit Status */}
+            <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#414943]/10 flex flex-col justify-between space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[#1D1B17] flex items-center gap-1.5">
+                  <span>⚖️</span>
+                  <span>Permit Status</span>
                 </span>
-                <div className="w-full bg-[#E5DCCE] h-2 rounded-full overflow-hidden mt-3">
-                  <div
-                    className="bg-[#D97706] h-full rounded-full transition-all"
-                    style={{ width: `${scores.administrativeReadiness}%` }}
-                  />
-                </div>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-[#FEF08A] text-[#713F12] border border-[#FACC15]/40 font-mono">
+                  {String(admin.status).split(' ')[0]}
+                </span>
               </div>
-              <div className="text-[11px] text-[#414943] leading-snug border-t border-[#414943]/8 pt-2 truncate">
-                {admin.statusReason} (Lead time: ~{admin.leadTimeWeeks} wks)
+              <div className="text-xs font-bold font-mono text-[#1D1B17]">
+                ~{admin.leadTimeWeeks} wk lead time
+              </div>
+              <div className="text-[11px] text-[#696156] truncate">
+                {admin.authority}
               </div>
             </div>
 
-            {/* 4. Data Confidence */}
-            <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#414943]/10 flex flex-col justify-between space-y-3">
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1D1B17] flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5 text-[#7C3AED]" />
-                    <span>4. Data Confidence</span>
-                  </span>
-                  <span className="font-mono font-bold text-base text-[#7C3AED]">
-                    {scores.dataConfidence}%
-                  </span>
-                </div>
-                <span className="text-[11px] text-[#696156] block mt-0.5">
-                  Verified dataset provenance
+            {/* 4. Data Quality */}
+            <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#414943]/10 flex flex-col justify-between space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[#1D1B17] flex items-center gap-1.5">
+                  <span>🔬</span>
+                  <span>Data Quality</span>
                 </span>
-                <div className="w-full bg-[#E5DCCE] h-2 rounded-full overflow-hidden mt-3">
-                  <div
-                    className="bg-[#7C3AED] h-full rounded-full transition-all"
-                    style={{ width: `${scores.dataConfidence}%` }}
-                  />
-                </div>
+                <span className="font-mono font-bold text-base text-[#7C3AED]">
+                  {scores.dataConfidence}%
+                </span>
               </div>
-              <div className="text-[11px] text-[#414943] leading-snug border-t border-[#414943]/8 pt-2">
-                NASA PDS LOLA, Diviner, USGS Astrogeology &amp; peer-reviewed scientific literature.
+              <div className="w-full bg-[#E5DCCE] h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-[#7C3AED] h-full rounded-full transition-all"
+                  style={{ width: `${scores.dataConfidence}%` }}
+                />
+              </div>
+              <div className="text-[11px] text-[#696156]">
+                Verified NASA LOLA, Diviner &amp; USGS data
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ==================== BALANCED SIDE-BY-SIDE MATRIX ==================== */}
-      {/* Visual "What This Site DOES & DOES NOT Reproduce" (NNG Balance & Contrast) */}
+      {/* ==================== CLEAN SIDE-BY-SIDE COMPARISON BOX ==================== */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Left Column: What It DOES Reproduce (Emerald / Green Highlights) */}
+        {/* Left (Green): What You Can Test Here */}
         <div className="bg-[#FFFFFF] rounded-2xl border border-[#2A5A44]/25 shadow-soft-card p-5 sm:p-6 space-y-4">
           <div className="flex items-center justify-between border-b border-[#2A5A44]/15 pb-3">
             <div className="flex items-center gap-2.5">
@@ -418,40 +364,77 @@ export const SiteDossierView: React.FC<SiteDossierViewProps> = ({
               </div>
               <div>
                 <h3 className="font-display font-bold text-base text-[#0F422E]">
-                  What This Terrestrial Site CAN Accurately Reproduce
+                  What You Can Test Here
                 </h3>
                 <p className="text-[11px] text-[#2A5A44]">
-                  Approved testing domains for Artemis IV surface equipment
+                  Approved engineering test domains for Artemis IV surface equipment
                 </p>
               </div>
             </div>
             <span className="px-2 py-0.5 rounded bg-[#EAF4EE] text-[#0F422E] text-[10px] font-mono font-bold">
-              5 Test Capabilities
+              High Fidelity
             </span>
           </div>
 
           <div className="space-y-3">
-            {doesReproduceItems.map((item, idx) => (
-              <div
-                key={idx}
-                className="p-3 rounded-xl bg-[#F7FAF8] border border-[#2A5A44]/15 space-y-1 transition-colors hover:border-[#2A5A44]/30"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1D1B17] flex items-center gap-2">
-                    <span className="text-[#0F422E] font-bold">✓</span>
-                    <span>{item.title}</span>
-                  </span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#EAF4EE] text-[#0F422E] font-semibold">
-                    {item.tag}
-                  </span>
-                </div>
-                <p className="text-xs text-[#414943] leading-relaxed pl-4">{item.detail}</p>
-              </div>
-            ))}
+            {/* Regolith traction */}
+            <div className="p-3 rounded-xl bg-[#F7FAF8] border border-[#2A5A44]/15 space-y-1">
+              <span className="text-xs font-bold text-[#1D1B17] flex items-center gap-1.5">
+                <span className="text-[#0F422E]">✓</span>
+                <span>Regolith Traction &amp; Slope Mobility</span>
+              </span>
+              <p className="text-xs text-[#414943] leading-relaxed pl-4">
+                Fragmented basaltic scree and loose volcanic ash matching slopes up to {selectedSite.slopeDeg}° evaluate wheel sinkage, tire grouser grip, and motor torque.
+              </p>
+            </div>
+
+            {/* Sulfur & chemical corrosion */}
+            <div className="p-3 rounded-xl bg-[#F7FAF8] border border-[#2A5A44]/15 space-y-1">
+              <span className="text-xs font-bold text-[#1D1B17] flex items-center gap-1.5">
+                <span className="text-[#0F422E]">✓</span>
+                <span>Sulfur &amp; Chemical Soil Corrosion</span>
+              </span>
+              <p className="text-xs text-[#414943] leading-relaxed pl-4">
+                High natural concentrations of native sulfur and acidic sulfate evaporites simulate corrosive regolith volatiles for material coupons and seal longevity.
+              </p>
+            </div>
+
+            {/* Cold soak */}
+            <div className="p-3 rounded-xl bg-[#F7FAF8] border border-[#2A5A44]/15 space-y-1">
+              <span className="text-xs font-bold text-[#1D1B17] flex items-center gap-1.5">
+                <span className="text-[#0F422E]">✓</span>
+                <span>Cryogenic Diurnal Cold Soak</span>
+              </span>
+              <p className="text-xs text-[#414943] leading-relaxed pl-4">
+                Diurnal cold drops reaching {minTemp}°C subject structural fasteners, elastomer seals, and battery heating units to real-world thermal shocks.
+              </p>
+            </div>
+
+            {/* Dust abrasion */}
+            <div className="p-3 rounded-xl bg-[#F7FAF8] border border-[#2A5A44]/15 space-y-1">
+              <span className="text-xs font-bold text-[#1D1B17] flex items-center gap-1.5">
+                <span className="text-[#0F422E]">✓</span>
+                <span>Abrasive Dust &amp; Particulate Ingress</span>
+              </span>
+              <p className="text-xs text-[#414943] leading-relaxed pl-4">
+                Sharp aeolian mineral dust verifies rotary bearing seal enclosures, camera lens wiper coatings, and radiator surface degradation.
+              </p>
+            </div>
+
+            {/* Autonomous navigation */}
+            <div className="p-3 rounded-xl bg-[#F7FAF8] border border-[#2A5A44]/15 space-y-1">
+              <span className="text-xs font-bold text-[#1D1B17] flex items-center gap-1.5">
+                <span className="text-[#0F422E]">✓</span>
+                <span>Autonomous Hazard Detection &amp; SLAM</span>
+              </span>
+              <p className="text-xs text-[#414943] leading-relaxed pl-4">
+                Rugged surface roughness ({selectedSite.rmsRoughnessM}m RMS) stresses stereo hazard navigation cameras and autonomous path planning algorithms.
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Right Column: What It CANNOT Reproduce (Red Alert Box / Rose Highlights) */}
+        {/* Right (Amber/Red): What Earth Cannot Match */}
         <div className="bg-[#FFFFFF] rounded-2xl border border-[#FEB2B2] shadow-soft-card p-5 sm:p-6 space-y-4">
           <div className="flex items-center justify-between border-b border-[#FEB2B2]/60 pb-3">
             <div className="flex items-center gap-2.5">
@@ -460,295 +443,146 @@ export const SiteDossierView: React.FC<SiteDossierViewProps> = ({
               </div>
               <div>
                 <h3 className="font-display font-bold text-base text-[#991B1B]">
-                  What This Terrestrial Site CANNOT Reproduce (Limitations)
+                  What Earth Cannot Match
                 </h3>
                 <p className="text-[11px] text-[#B91C1C]">
-                  Conditions requiring separate chamber or centrifuge testing
+                  Physical limitations requiring vacuum chamber or centrifuge testing
                 </p>
               </div>
             </div>
             <span className="px-2 py-0.5 rounded bg-[#FEE2E2] text-[#991B1B] text-[10px] font-mono font-bold">
-              Physical Caveats
+              Physical Limits
             </span>
           </div>
 
           <div className="space-y-3">
-            {cannotReproduceItems.map((item, idx) => {
-              const [heading, ...rest] = item.split(':');
-              return (
-                <div
-                  key={idx}
-                  className="p-3 rounded-xl bg-[#FFF5F5] border border-[#FEB2B2]/50 space-y-1 transition-colors hover:border-[#FEB2B2]"
-                >
-                  <div className="text-xs font-bold text-[#991B1B] flex items-center gap-2">
-                    <span className="text-[#DC2626] font-bold">✕</span>
-                    <span>{heading}</span>
-                  </div>
-                  <p className="text-xs text-[#7F1D1D] leading-relaxed pl-4">
-                    {rest.join(':') || item}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* ==================== SCIENTIFIC DEEP-DIVE TABS ==================== */}
-      <div className="bg-[#FFFFFF] rounded-2xl border border-[#414943]/10 shadow-soft-card p-6 space-y-5">
-        {/* Tab Controls */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#414943]/8 pb-4">
-          <div className="flex items-center p-0.5 bg-[#F3EDE5] rounded-xl border border-[#414943]/8 text-xs font-medium">
-            <button
-              type="button"
-              onClick={() => setActiveTab('geology')}
-              className={`px-4 py-1.5 rounded-lg transition-all cursor-pointer ${
-                activeTab === 'geology'
-                  ? 'bg-[#184633] text-white font-semibold shadow-xs'
-                  : 'text-[#696156] hover:text-[#1D1B17]'
-              }`}
-            >
-              <span className="flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5" />
-                <span>Geology &amp; Lithology Evidence</span>
+            {/* Hard vacuum */}
+            <div className="p-3 rounded-xl bg-[#FFF5F5] border border-[#FEB2B2]/50 space-y-1">
+              <span className="text-xs font-bold text-[#991B1B] flex items-center gap-1.5">
+                <span className="text-[#DC2626]">✕</span>
+                <span>Hard Vacuum (0 kPa)</span>
               </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('logistics')}
-              className={`px-4 py-1.5 rounded-lg transition-all cursor-pointer ${
-                activeTab === 'logistics'
-                  ? 'bg-[#184633] text-white font-semibold shadow-xs'
-                  : 'text-[#696156] hover:text-[#1D1B17]'
-              }`}
-            >
-              <span className="flex items-center gap-1.5">
-                <Compass className="w-3.5 h-3.5" />
-                <span>Field Logistics &amp; Accessibility</span>
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('equipment')}
-              className={`px-4 py-1.5 rounded-lg transition-all cursor-pointer ${
-                activeTab === 'equipment'
-                  ? 'bg-[#184633] text-white font-semibold shadow-xs'
-                  : 'text-[#696156] hover:text-[#1D1B17]'
-              }`}
-            >
-              <span className="flex items-center gap-1.5">
-                <Wrench className="w-3.5 h-3.5" />
-                <span>Recommended Artemis IV Equipment Tests</span>
-              </span>
-            </button>
-          </div>
-
-          <ProvenanceBadge tag={selectedSite.provenance || 'VERIFIED NASA PDS / EARTHDATA'} />
-        </div>
-
-        {/* Tab 1: Geology & Lithology */}
-        {activeTab === 'geology' && (
-          <div className="space-y-4 animate-in fade-in-50 duration-200">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#414943]/8 space-y-2">
-                <span className="text-xs font-bold text-[#1D1B17] block">
-                  Geological Context &amp; Stratigraphy
-                </span>
-                <p className="text-xs text-[#414943] leading-relaxed">
-                  {selectedSite.geologySummary || selectedSite.fieldAccessNotes}
-                </p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#414943]/8 space-y-2">
-                <span className="text-xs font-bold text-[#1D1B17] block">
-                  Mineralogical Composition &amp; Native Volatiles
-                </span>
-                <p className="text-xs text-[#414943] leading-relaxed">
-                  {selectedSite.mineralogyEvidence ||
-                    'Basaltic pyroxene, calcic plagioclase, olivine, minor sulfate evaporites, and iron-bearing silicates.'}
-                </p>
-              </div>
-            </div>
-
-            {/* Geomorphic Parameters Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-3 rounded-xl bg-[#FAF7F2] border border-[#414943]/8 text-center">
-                <span className="text-[10px] text-[#696156] uppercase font-mono block">
-                  Bare Rock Exposure
-                </span>
-                <span className="text-base font-bold font-mono text-[#1D1B17]">
-                  {selectedSite.bareRockPct}%
-                </span>
-                <span className="text-[10px] text-[#696156] block mt-0.5">High sensor contact</span>
-              </div>
-              <div className="p-3 rounded-xl bg-[#FAF7F2] border border-[#414943]/8 text-center">
-                <span className="text-[10px] text-[#696156] uppercase font-mono block">
-                  Aridity Index
-                </span>
-                <span className="text-base font-bold font-mono text-[#1D1B17]">
-                  {selectedSite.aridityIndex}/100
-                </span>
-                <span className="text-[10px] text-[#696156] block mt-0.5">Hyper-arid regime</span>
-              </div>
-              <div className="p-3 rounded-xl bg-[#FAF7F2] border border-[#414943]/8 text-center">
-                <span className="text-[10px] text-[#696156] uppercase font-mono block">
-                  Radar CPR Proxy
-                </span>
-                <span className="text-base font-bold font-mono text-[#1D1B17]">
-                  {selectedSite.radarCprProxy.toFixed(2)}
-                </span>
-                <span className="text-[10px] text-[#696156] block mt-0.5">LRO Mini-RF baseline</span>
-              </div>
-              <div className="p-3 rounded-xl bg-[#FAF7F2] border border-[#414943]/8 text-center">
-                <span className="text-[10px] text-[#696156] uppercase font-mono block">
-                  Catalog Status
-                </span>
-                <span className="text-sm font-bold text-[#184633]">
-                  {selectedSite.isCatalogKnown ? 'NASA Cataloged' : 'Emerging Analog'}
-                </span>
-                <span className="text-[10px] text-[#696156] block mt-0.5">
-                  {selectedSite.catalogCitation?.split('·')[0] || 'CAFE Catalogue'}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Tab 2: Field Logistics & Accessibility */}
-        {activeTab === 'logistics' && (
-          <div className="space-y-4 animate-in fade-in-50 duration-200">
-            <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#414943]/8 space-y-2">
-              <span className="text-xs font-bold text-[#1D1B17] block">
-                Operational Access Pathway &amp; Heavy Vehicle Transit
-              </span>
-              <p className="text-xs text-[#414943] leading-relaxed">
-                {selectedSite.operationalLogistics || selectedSite.fieldAccessNotes}
+              <p className="text-xs text-[#7F1D1D] leading-relaxed pl-4">
+                Earth atmospheric pressure ({selectedSite.elevationM > 3500 ? '62-75' : '85-101'} kPa) prevents testing vacuum outgassing, sublimation kinetics, and bare metal cold-welding.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-              <div className="p-3.5 rounded-xl bg-[#FAF7F2] border border-[#414943]/8 space-y-1">
-                <span className="font-mono text-[10px] uppercase text-[#696156] block">
-                  Topographic Slope &amp; Roughness
-                </span>
-                <div className="font-mono font-bold text-sm text-[#1D1B17]">
-                  {selectedSite.slopeDeg}° Slope · {selectedSite.rmsRoughnessM}m RMS
-                </div>
-                <div className="text-[11px] text-[#696156]">
-                  Target benchmark: {activeTarget.meanSlopeDeg}° mean slope
-                </div>
-              </div>
+            {/* 1/6th gravity */}
+            <div className="p-3 rounded-xl bg-[#FFF5F5] border border-[#FEB2B2]/50 space-y-1">
+              <span className="text-xs font-bold text-[#991B1B] flex items-center gap-1.5">
+                <span className="text-[#DC2626]">✕</span>
+                <span>Lunar 1/6th Gravity (0.166 g)</span>
+              </span>
+              <p className="text-xs text-[#7F1D1D] leading-relaxed pl-4">
+                Terrestrial 1.0 g gravity imposes 6x higher vehicle mass loads, altering suspension spring compression and vehicle rollover tipping angles.
+              </p>
+            </div>
 
-              <div className="p-3.5 rounded-xl bg-[#FAF7F2] border border-[#414943]/8 space-y-1">
-                <span className="font-mono text-[10px] uppercase text-[#696156] block">
-                  Thermal Amplitude Range
-                </span>
-                <div className="font-mono font-bold text-sm text-[#1D1B17]">
-                  {Math.min(...selectedSite.monthlyMinTempC)}°C to{' '}
-                  {Math.max(...selectedSite.monthlyMaxTempC)}°C
-                </div>
-                <div className="text-[11px] text-[#696156]">
-                  Max diurnal delta: {Math.max(...selectedSite.monthlyDiurnalDeltaK)} K
-                </div>
-              </div>
+            {/* Cosmic radiation */}
+            <div className="p-3 rounded-xl bg-[#FFF5F5] border border-[#FEB2B2]/50 space-y-1">
+              <span className="text-xs font-bold text-[#991B1B] flex items-center gap-1.5">
+                <span className="text-[#DC2626]">✕</span>
+                <span>Cosmic &amp; Solar Wind Radiation</span>
+              </span>
+              <p className="text-xs text-[#7F1D1D] leading-relaxed pl-4">
+                Earth&apos;s magnetic field and upper atmosphere shield &gt;100x against galactic cosmic rays (GCR) and high-energy solar proton event single-event upsets.
+              </p>
+            </div>
 
-              <div className="p-3.5 rounded-xl bg-[#FAF7F2] border border-[#414943]/8 space-y-1">
-                <span className="font-mono text-[10px] uppercase text-[#696156] block">
-                  Emergency Medical Evacuation
-                </span>
-                <div className="font-mono font-bold text-sm text-[#1D1B17]">
-                  {scores.operationalFeasibility >= 70 ? '< 4 Hours (Airstrip)' : 'Remote Expedition'}
-                </div>
-                <div className="text-[11px] text-[#696156]">
-                  Comms: Iridium / Starlink satellite telemetry
-                </div>
-              </div>
+            {/* Deep PSR cold */}
+            <div className="p-3 rounded-xl bg-[#FFF5F5] border border-[#FEB2B2]/50 space-y-1">
+              <span className="text-xs font-bold text-[#991B1B] flex items-center gap-1.5">
+                <span className="text-[#DC2626]">✕</span>
+                <span>Deep PSR Cryogenic Cold (&lt;40 K)</span>
+              </span>
+              <p className="text-xs text-[#7F1D1D] leading-relaxed pl-4">
+                Permanently Shadowed Regions on the Moon reach 40 K (-233°C). Terrestrial winter lows reach ~{minTemp}°C, requiring cryogenic thermal-vac chambers.
+              </p>
+            </div>
+
+            {/* Electrostatic levitation */}
+            <div className="p-3 rounded-xl bg-[#FFF5F5] border border-[#FEB2B2]/50 space-y-1">
+              <span className="text-xs font-bold text-[#991B1B] flex items-center gap-1.5">
+                <span className="text-[#DC2626]">✕</span>
+                <span>Electrostatic Dust Levitation</span>
+              </span>
+              <p className="text-xs text-[#7F1D1D] leading-relaxed pl-4">
+                Ambient atmospheric humidity discharges electrostatic particle charging, suppressing the lunar dust lofting and adhesion dynamics.
+              </p>
             </div>
           </div>
-        )}
-
-        {/* Tab 3: Recommended Artemis IV Equipment Tests */}
-        {activeTab === 'equipment' && (
-          <div className="space-y-3 animate-in fade-in-50 duration-200">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="p-3.5 rounded-xl bg-[#FAF7F2] border border-[#414943]/8 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1D1B17]">
-                    1. Rover Drivetrain Traction &amp; Wheel Slip
-                  </span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#EAF4EE] text-[#0F422E] font-semibold">
-                    High Priority
-                  </span>
-                </div>
-                <p className="text-xs text-[#414943] leading-relaxed">
-                  Evaluate tire grousers, torque distribution, wheel sinkage, and motor current draw
-                  on loose granular slopes matching lunar scarp angles ({selectedSite.slopeDeg}°).
-                </p>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-[#FAF7F2] border border-[#414943]/8 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1D1B17]">
-                    2. Surface Sampling Drill Bit Abrasive Wear
-                  </span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#EAF4EE] text-[#0F422E] font-semibold">
-                    Core Rig Test
-                  </span>
-                </div>
-                <p className="text-xs text-[#414943] leading-relaxed">
-                  Test rotary-percussive drill bit wear rates, cutter thermal dissipation, and core
-                  sample retention in dense, cemented rock or frozen permafrost.
-                </p>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-[#FAF7F2] border border-[#414943]/8 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1D1B17]">
-                    3. Dust Seal Ingress &amp; Joint Enclosure
-                  </span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#FFF8F1] text-[#A33E11] font-semibold">
-                    Seal Reliability
-                  </span>
-                </div>
-                <p className="text-xs text-[#414943] leading-relaxed">
-                  Subject rotary seals, camera lens wiper coatings, and radiator fins to abrasive
-                  mineral dust under diurnal thermal cycling.
-                </p>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-[#FAF7F2] border border-[#414943]/8 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1D1B17]">
-                    4. Native Sulfur &amp; Corrosion Coupons
-                  </span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#FFF8F1] text-[#A33E11] font-semibold">
-                    Material Coupons
-                  </span>
-                </div>
-                <p className="text-xs text-[#414943] leading-relaxed">
-                  Expose aluminum 7075-T6, titanium Grade 5, and anodized coatings to acidic sulfate
-                  brines to audit corrosion rates and degradation kinetics.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
 
-      {/* ==================== PROMINENT NEXT ACTION CTA CARD ==================== */}
+      {/* ==================== SIMPLE LOGISTICS CARD ==================== */}
+      <div className="bg-[#FFFFFF] rounded-2xl border border-[#414943]/10 shadow-soft-card p-6 space-y-4">
+        <div className="flex items-center gap-2 border-b border-[#414943]/8 pb-3">
+          <Truck className="w-5 h-5 text-[#184633]" />
+          <div>
+            <h3 className="font-display font-bold text-base text-[#1D1B17]">
+              Field Logistics &amp; Expedition Access
+            </h3>
+            <p className="text-xs text-[#696156]">
+              Operational transit routes, medical evacuation pathways, and satellite telemetry
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          {/* Access Route */}
+          <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#414943]/8 space-y-1.5">
+            <span className="font-mono text-[10px] uppercase font-bold text-[#696156] flex items-center gap-1">
+              <span>🛣️</span>
+              <span>Ground Access Route</span>
+            </span>
+            <p className="text-xs text-[#1D1B17] font-semibold leading-relaxed">
+              {logistics.route}
+            </p>
+          </div>
+
+          {/* Nearest Airstrip */}
+          <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#414943]/8 space-y-1.5">
+            <span className="font-mono text-[10px] uppercase font-bold text-[#696156] flex items-center gap-1">
+              <span>✈️</span>
+              <span>Nearest Airstrip / Airfield</span>
+            </span>
+            <p className="text-xs text-[#1D1B17] font-semibold leading-relaxed">
+              {logistics.airstrip}
+            </p>
+          </div>
+
+          {/* Hospital / Medevac */}
+          <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#414943]/8 space-y-1.5">
+            <span className="font-mono text-[10px] uppercase font-bold text-[#696156] flex items-center gap-1">
+              <span>🏥</span>
+              <span>Hospital &amp; Emergency Medevac</span>
+            </span>
+            <p className="text-xs text-[#1D1B17] font-semibold leading-relaxed">
+              {logistics.hospital}
+            </p>
+          </div>
+        </div>
+
+        {/* Comms strip */}
+        <div className="pt-1 flex items-center gap-2 text-xs text-[#696156]">
+          <Radio className="w-3.5 h-3.5 text-[#184633]" />
+          <span>Communications: Verified Starlink portable broadband telemetry &amp; Iridium Extreme satellite emergency beacon.</span>
+        </div>
+      </div>
+
+      {/* ==================== LARGE CTA BUTTON / WORKFLOW CARD ==================== */}
       <div className="bg-[#FFFFFF] rounded-2xl border-2 border-[#184633] shadow-md p-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="space-y-1 max-w-2xl">
+        <div className="space-y-1 max-w-xl">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold font-mono uppercase tracking-wider text-[#184633]">
-              Next Step in Mission Workflow: Step 4 of 6
+              Next Mission Step: Legal Clearance
             </span>
           </div>
           <h3 className="font-display font-bold text-lg text-[#1D1B17]">
-            Verify Land Access &amp; Environmental Permits for {selectedSite.name}
+            Verify Land Access &amp; Permits for {selectedSite.name}
           </h3>
           <p className="text-xs text-[#696156] leading-relaxed">
-            Inspect responsible land authorities ({admin.authority}), statutory review lead times (~
-            {admin.leadTimeWeeks} weeks), and generate an expedition clearance package.
+            Review land management jurisdiction ({admin.authority}), statutory filing lead times (~{admin.leadTimeWeeks} weeks), and generate an expedition clearance package.
           </p>
         </div>
 
@@ -765,7 +599,7 @@ export const SiteDossierView: React.FC<SiteDossierViewProps> = ({
             onClick={() => onNavigate('permits')}
             className="px-6 py-2.5 rounded-xl bg-[#184633] text-white text-xs font-semibold hover:bg-[#2A5A44] transition-all flex items-center gap-2 shadow-sm cursor-pointer"
           >
-            <span>Proceed to Access &amp; Permits (Module 4)</span>
+            <span>Check Legal Permits &amp; Requirements (Module 4)</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
