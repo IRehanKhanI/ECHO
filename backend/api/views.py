@@ -187,6 +187,10 @@ def get_all_earth_analogs() -> list[dict[str, Any]]:
                 plagioclase_pct = float(row.get("plagioclase_pct", 60.0))
                 pyroxene_pct = float(row.get("pyroxene_pct", 20.0))
                 feo_wt_pct = float(row.get("feo_wt_pct", 6.0))
+                era5_soil_temp = float(row.get("era5_soil_temp_c", temp_raw))
+                ecv_air_temp = float(row.get("ecv_air_temp_c", temp_raw))
+                petdb_sample_id = row.get("petdb_sample_id") or f"PETDB-{row.get('analog_id', 'EAR')}"
+                petdb_silica_pct = float(row.get("petdb_silica_pct", 50.0))
             except (ValueError, TypeError):
                 continue
 
@@ -221,6 +225,10 @@ def get_all_earth_analogs() -> list[dict[str, Any]]:
                 "plagioclase_pct": round(plagioclase_pct, 1),
                 "pyroxene_pct": round(pyroxene_pct, 1),
                 "feo_wt_pct": round(feo_wt_pct, 1),
+                "era5_soil_temp_c": round(era5_soil_temp, 1),
+                "ecv_air_temp_c": round(ecv_air_temp, 1),
+                "petdb_sample_id": petdb_sample_id,
+                "petdb_silica_pct": round(petdb_silica_pct, 1),
                 "prior_nasa_use_status": prior_use,
                 "is_novel": is_novel,
                 "access_status": status,
@@ -664,3 +672,95 @@ class SimulateWearView(APIView):
 
 
 simulate_wear = SimulateWearView.as_view()
+
+
+class AnalyzePermitsView(APIView):
+    """
+    Evaluates statutory permit frameworks and Google Gemini regulatory intelligence
+    for planetary analog candidate locations.
+    Accepts POST { "lat": float, "lng": float, "site_id"?: string, "country"?: string }.
+    Returns verified statutory jurisdiction, verified statutory permits with official portal links,
+    China Wolf Amendment prohibition flag (PL 112-55 §539), AI regulatory predictions (environmental,
+    zoning, sample export), data provenance citations, and explicit statutory disclaimers.
+    """
+
+    def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        data = getattr(request, "data", None)
+        if not isinstance(data, dict):
+            return Response(
+                {"error": "Request body must be a valid JSON object."},
+                status=400,
+            )
+
+        site_id = data.get("site_id")
+        country = data.get("country")
+        lat = data.get("lat")
+        lng = data.get("lng")
+
+        # If lat and lng not provided, but site_id is provided, resolve from catalog
+        if lat is None or lng is None:
+            if site_id:
+                analogs = get_all_earth_analogs()
+                matched = next(
+                    (
+                        a
+                        for a in analogs
+                        if a.get("analog_id") == site_id or a.get("id") == site_id
+                    ),
+                    None,
+                )
+                if matched:
+                    lat = matched.get("lat")
+                    lng = matched.get("lng")
+                    if not country:
+                        country = matched.get("country")
+                else:
+                    return Response(
+                        {"error": f"Unknown site_id '{site_id}' and no lat/lng coordinates supplied."},
+                        status=400,
+                    )
+            else:
+                return Response(
+                    {"error": "Coordinates (lat, lng) or a valid site_id must be provided."},
+                    status=400,
+                )
+
+        try:
+            lat_f = float(lat)
+            lng_f = float(lng)
+        except (ValueError, TypeError):
+            return Response(
+                {"error": "Latitude (lat) and Longitude (lng) must be valid numeric values."},
+                status=400,
+            )
+
+        if not math.isfinite(lat_f) or not math.isfinite(lng_f):
+            return Response(
+                {"error": "Coordinates must be finite numbers."},
+                status=400,
+            )
+
+        if not (-90.0 <= lat_f <= 90.0):
+            return Response(
+                {"error": f"Latitude {lat_f} is out of valid range [-90, +90]."},
+                status=400,
+            )
+
+        if not (-180.0 <= lng_f <= 180.0):
+            return Response(
+                {"error": f"Longitude {lng_f} is out of valid range [-180, +180]."},
+                status=400,
+            )
+
+        from data_pipelines.gemini_permits_service import analyze_permit_requirements
+
+        result = analyze_permit_requirements(
+            lat=lat_f,
+            lng=lng_f,
+            site_id=str(site_id) if site_id else None,
+            country=str(country) if country else None,
+        )
+        return Response(result, status=200)
+
+
+analyze_permits = AnalyzePermitsView.as_view()

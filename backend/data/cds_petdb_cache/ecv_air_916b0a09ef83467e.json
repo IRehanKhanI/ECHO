@@ -1,0 +1,13 @@
+{
+  "dataset": "ecv-for-climate-change",
+  "variable": "surface_air_temperature",
+  "lat": -25.4,
+  "lng": -68.7,
+  "year": "2026",
+  "data_format": "grib",
+  "ecv_air_temp_c": -4.8,
+  "kelvin": 268.35,
+  "file_path": null,
+  "provenance": "Copernicus Climate Change Service (C3S) ECV (Physics Baseline)",
+  "retrieval_status": "CDS_OFFLINE_CACHE"
+}

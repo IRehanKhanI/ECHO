@@ -2,6 +2,23 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Cpu,
+  Layers,
+  Maximize2,
+  RotateCw,
+  Upload,
+  X,
+} from 'lucide-react';
+import {
+  CAD_MODEL_PRESETS,
+  CadModelPresetId,
+  CadModelTelemetry,
+} from '../../types/cad';
 import { CadPartId, PartDegradationState } from '../../types/terra';
 
 export interface PartScreenAnchor {
@@ -11,16 +28,25 @@ export interface PartScreenAnchor {
   visible: boolean;
 }
 
-interface EquipmentTwin3DProps {
-  selectedPartId: CadPartId | null;
-  onSelectPart: (partId: CadPartId | null) => void;
-  exploded: boolean;
-  isolatedPartId: CadPartId | null;
-  sectionMode: boolean;
-  cameraResetTrigger: number;
-  degradationStates: PartDegradationState[];
+export interface EquipmentTwin3DProps {
+  selectedPartId?: CadPartId | null;
+  onSelectPart?: (partId: CadPartId | null) => void;
+  exploded?: boolean;
+  isolatedPartId?: CadPartId | null;
+  sectionMode?: boolean;
+  cameraResetTrigger?: number;
+  degradationStates?: PartDegradationState[];
   onAnchorsUpdate?: (anchors: Record<CadPartId, PartScreenAnchor>) => void;
   className?: string;
+
+  // New Custom CAD & Presets Props
+  activePresetId?: CadModelPresetId;
+  onSelectPreset?: (presetId: CadModelPresetId) => void;
+  customFile?: File | null;
+  onCustomFileSelect?: (file: File) => void;
+  onTelemetryUpdate?: (telemetry: CadModelTelemetry) => void;
+  predictedDegradation?: number;
+  showControlsOverlay?: boolean;
 }
 
 const _projVec = new THREE.Vector3();
@@ -137,19 +163,39 @@ function createHelicalRibbonGeometry(
   return geo;
 }
 
+interface CustomMeshRecord {
+  mesh: THREE.Mesh;
+  materials: THREE.MeshStandardMaterial[];
+  baseColors: THREE.Color[];
+  baseEmissives: THREE.Color[];
+  originalPosition: THREE.Vector3;
+}
+
 export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
-  selectedPartId,
-  onSelectPart,
-  exploded,
-  isolatedPartId,
-  sectionMode,
-  cameraResetTrigger,
-  degradationStates,
+  selectedPartId = null,
+  onSelectPart = () => {},
+  exploded = false,
+  isolatedPartId = null,
+  sectionMode = false,
+  cameraResetTrigger = 0,
+  degradationStates = [],
   onAnchorsUpdate,
   className = '',
+  activePresetId = 'drill',
+  onSelectPreset,
+  customFile = null,
+  onCustomFileSelect,
+  onTelemetryUpdate,
+  predictedDegradation = 0.05,
+  showControlsOverlay = true,
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [webglError, setWebglError] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isLoadingModel, setIsLoadingModel] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [activeTelemetry, setActiveTelemetry] = useState<CadModelTelemetry | null>(null);
 
   const propsRef = useRef({
     selectedPartId,
@@ -159,7 +205,12 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
     sectionMode,
     degradationStates,
     onAnchorsUpdate,
+    activePresetId,
+    customFile,
+    predictedDegradation,
+    onTelemetryUpdate,
   });
+
   propsRef.current = {
     selectedPartId,
     onSelectPart,
@@ -168,14 +219,21 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
     sectionMode,
     degradationStates,
     onAnchorsUpdate,
+    activePresetId,
+    customFile,
+    predictedDegradation,
+    onTelemetryUpdate,
   };
 
   const sceneStateRef = useRef<{
     requestRender?: () => void;
+    rebuildActiveAssembly?: () => void;
+    loadCustomFile?: (file: File) => void;
     renderer?: THREE.WebGLRenderer;
     camera?: THREE.PerspectiveCamera;
     controls?: OrbitControls;
     clipPlane?: THREE.Plane;
+    assemblyRoot?: THREE.Group;
     explodeProgress: number;
     partGroups: Partial<Record<CadPartId, THREE.Group>>;
     partMaterials: Partial<Record<CadPartId, THREE.MeshStandardMaterial[]>>;
@@ -184,6 +242,11 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
     basePositions: Partial<Record<CadPartId, THREE.Vector3>>;
     explodeOffsets: Record<CadPartId, THREE.Vector3>;
     anchorLocalOffsets: Record<CadPartId, THREE.Vector3>;
+    customWrapper?: THREE.Group;
+    customMeshRecords: CustomMeshRecord[];
+    clickableMeshes: THREE.Object3D[];
+    geometriesToDispose: THREE.BufferGeometry[];
+    materialsToDispose: THREE.Material[];
     resetCamRequested: boolean;
   }>({
     explodeProgress: 0,
@@ -208,16 +271,29 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
       seal: new THREE.Vector3(0.24, -0.45, 0.18),
       auger: new THREE.Vector3(0.18, -1.05, 0.15),
     },
+    customMeshRecords: [],
+    clickableMeshes: [],
+    geometriesToDispose: [],
+    materialsToDispose: [],
     resetCamRequested: false,
   });
 
-  // Trigger camera reset when requested
+  // Camera reset trigger
   useEffect(() => {
     if (cameraResetTrigger > 0) {
       sceneStateRef.current.resetCamRequested = true;
       sceneStateRef.current.requestRender?.();
     }
   }, [cameraResetTrigger]);
+
+  // Handle active preset or custom file change
+  useEffect(() => {
+    if (propsRef.current.activePresetId === 'custom' && customFile) {
+      sceneStateRef.current.loadCustomFile?.(customFile);
+    } else {
+      sceneStateRef.current.rebuildActiveAssembly?.();
+    }
+  }, [activePresetId, customFile]);
 
   // Trigger render & material updates on state prop changes
   useEffect(() => {
@@ -226,8 +302,16 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
       st.renderer.localClippingEnabled = sectionMode;
     }
     st.requestRender?.();
-  }, [exploded, isolatedPartId, sectionMode, selectedPartId, degradationStates]);
+  }, [
+    exploded,
+    isolatedPartId,
+    sectionMode,
+    selectedPartId,
+    degradationStates,
+    predictedDegradation,
+  ]);
 
+  // Main Three.js Scene Setup
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
@@ -286,18 +370,14 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
     controls.enableDamping = !isSoftwareGl;
     controls.dampingFactor = 0.07;
     controls.target.set(0, -0.15, 0);
-    controls.minDistance = 1.6;
-    controls.maxDistance = 6.5;
+    controls.minDistance = 1.4;
+    controls.maxDistance = 7.0;
 
     // Studio lighting rig
     const keyLight = new THREE.DirectionalLight(0xfff6ea, 2.2);
     keyLight.position.set(3.5, 5.0, 3.2);
     keyLight.castShadow = !isSoftwareGl;
     keyLight.shadow.mapSize.set(1024, 1024);
-    keyLight.shadow.camera.left = -2;
-    keyLight.shadow.camera.right = 2;
-    keyLight.shadow.camera.top = 2;
-    keyLight.shadow.camera.bottom = -2;
     keyLight.shadow.bias = -0.0005;
     keyLight.shadow.normalBias = 0.02;
     scene.add(keyLight);
@@ -315,7 +395,7 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
     // Ground contact shadow + subtle CAD reference grid
     const contactShadowTex = createRadialContactShadowTexture();
     const shadowPlane = new THREE.Mesh(
-      new THREE.PlaneGeometry(3.2, 3.2),
+      new THREE.PlaneGeometry(3.6, 3.6),
       new THREE.MeshBasicMaterial({
         map: contactShadowTex,
         transparent: true,
@@ -326,7 +406,7 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
     shadowPlane.position.y = -1.62;
     scene.add(shadowPlane);
 
-    const gridHelper = new THREE.GridHelper(3.4, 18, 0xcbd5e1, 0xdbe2ea);
+    const gridHelper = new THREE.GridHelper(3.6, 18, 0xcbd5e1, 0xdbe2ea);
     gridHelper.position.y = -1.63;
     scene.add(gridHelper);
 
@@ -337,9 +417,29 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
     scene.add(assemblyRoot);
 
     const st = sceneStateRef.current;
-    const geometriesToDispose: THREE.BufferGeometry[] = [];
-    const materialsToDispose: THREE.Material[] = [];
-    const clickableMeshes: THREE.Object3D[] = [];
+    st.renderer = renderer;
+    st.camera = camera;
+    st.controls = controls;
+    st.clipPlane = clipPlane;
+    st.assemblyRoot = assemblyRoot;
+
+    function clearAssembly() {
+      while (assemblyRoot.children.length > 0) {
+        assemblyRoot.remove(assemblyRoot.children[0]);
+      }
+      st.geometriesToDispose.forEach((g) => g.dispose());
+      st.materialsToDispose.forEach((m) => m.dispose());
+      st.geometriesToDispose = [];
+      st.materialsToDispose = [];
+      st.clickableMeshes = [];
+      st.partGroups = {};
+      st.partMaterials = {};
+      st.partBaseColors = {};
+      st.failureSpheres = {};
+      st.basePositions = {};
+      st.customWrapper = undefined;
+      st.customMeshRecords = [];
+    }
 
     function registerPart(
       id: CadPartId,
@@ -361,7 +461,7 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
           child.castShadow = true;
           child.receiveShadow = true;
           child.userData.partId = id;
-          clickableMeshes.push(child);
+          st.clickableMeshes.push(child);
           const m = child.material as THREE.MeshStandardMaterial;
           m.clippingPlanes = [clipPlane];
           m.clipShadows = true;
@@ -373,7 +473,7 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
       st.partMaterials[id] = mats;
       st.partBaseColors[id] = baseColors;
 
-      // Translucent crimson failure highlight sphere + hairline ring
+      // Crimson failure highlight sphere + hairline ring
       const failGroup = new THREE.Group();
       failGroup.position.copy(failureCenter);
       const sphereGeo = new THREE.SphereGeometry(failureRadius, 24, 18);
@@ -402,12 +502,15 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
       group.add(failGroup);
 
       st.failureSpheres[id] = failGroup;
-      geometriesToDispose.push(sphereGeo, ringGeo);
-      materialsToDispose.push(sphereMat, ringMat);
+      st.geometriesToDispose.push(sphereGeo, ringGeo);
+      st.materialsToDispose.push(sphereMat, ringMat);
     }
 
-    // 1. OUTER CRANKCASE / ACTUATOR HOUSING (Lathe barrel + Extruded bevel flange + cooling ribs)
-    {
+    // ========================================================
+    // PRESET 1: TX-DRL-40 Coring Drill & Rover Assembly
+    // ========================================================
+    function buildDrillAssembly() {
+      // 1. Housing
       const housingGroup = new THREE.Group();
       const lathePts = [
         new THREE.Vector2(0.32, -0.35),
@@ -432,7 +535,6 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
       const barrel = new THREE.Mesh(barrelGeo, barrelMat);
       housingGroup.add(barrel);
 
-      // Cooling ribs
       const ribGeo = new THREE.TorusGeometry(0.485, 0.018, 10, 40);
       const ribMat = new THREE.MeshStandardMaterial({
         color: 0x475569,
@@ -446,7 +548,6 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
         housingGroup.add(rib);
       }
 
-      // Top actuator cap
       const capGeo = new THREE.CylinderGeometry(0.28, 0.34, 0.14, 32);
       const capMat = new THREE.MeshStandardMaterial({
         color: 0x334155,
@@ -457,8 +558,8 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
       cap.position.y = 0.56;
       housingGroup.add(cap);
 
-      geometriesToDispose.push(barrelGeo, ribGeo, capGeo);
-      materialsToDispose.push(barrelMat, ribMat, capMat);
+      st.geometriesToDispose.push(barrelGeo, ribGeo, capGeo);
+      st.materialsToDispose.push(barrelMat, ribMat, capMat);
       registerPart(
         'housing',
         housingGroup,
@@ -466,10 +567,8 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
         new THREE.Vector3(0, 0.15, 0),
         0.6,
       );
-    }
 
-    // 2. Ti-6Al-4V STRUCTURAL FASTENER SCREWS (x6 radially arrayed hex bolts)
-    {
+      // 2. Fasteners
       const fastGroup = new THREE.Group();
       const headGeo = new THREE.CylinderGeometry(0.038, 0.038, 0.045, 6);
       const shankGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.14, 16);
@@ -480,7 +579,6 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
         const r = 0.44;
         const bolt = new THREE.Group();
         bolt.position.set(Math.cos(angle) * r, 0.67, Math.sin(angle) * r);
-
         const tiMat = new THREE.MeshStandardMaterial({
           color: i === 3 ? 0xd4a373 : 0xcbd5e1,
           metalness: 0.92,
@@ -492,14 +590,11 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
         washer.position.y = 0.006;
         const shank = new THREE.Mesh(shankGeo, tiMat);
         shank.position.y = -0.07;
-
         bolt.add(head, washer, shank);
         fastGroup.add(bolt);
-        materialsToDispose.push(tiMat);
+        st.materialsToDispose.push(tiMat);
       }
-
-      geometriesToDispose.push(headGeo, shankGeo, washerGeo);
-      // Anchor failure sphere specifically on Fastener Screw #4 (index 3)
+      st.geometriesToDispose.push(headGeo, shankGeo, washerGeo);
       const fAngle = (3 / 6) * Math.PI * 2 + Math.PI / 6;
       registerPart(
         'fasteners',
@@ -508,10 +603,8 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
         new THREE.Vector3(Math.cos(fAngle) * 0.44, 0.67, Math.sin(fAngle) * 0.44),
         0.16,
       );
-    }
 
-    // 3. BRUSHLESS STATOR WINDING (Laminated core + copper coil loops via TubeGeometry)
-    {
+      // 3. Stator
       const statorGroup = new THREE.Group();
       const coreGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.44, 24, 1, true);
       const coreMat = new THREE.MeshStandardMaterial({
@@ -542,20 +635,11 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
         coil.rotation.y = (i / 10) * Math.PI * 2;
         statorGroup.add(coil);
       }
+      st.geometriesToDispose.push(coreGeo, coilGeo);
+      st.materialsToDispose.push(coreMat, copperMat);
+      registerPart('stator', statorGroup, 0.22, new THREE.Vector3(0, 0, 0), 0.38);
 
-      geometriesToDispose.push(coreGeo, coilGeo);
-      materialsToDispose.push(coreMat, copperMat);
-      registerPart(
-        'stator',
-        statorGroup,
-        0.22,
-        new THREE.Vector3(0, 0, 0),
-        0.38,
-      );
-    }
-
-    // 4. PLANETARY REDUCTION GEAR CARRIER
-    {
+      // 4. Gears
       const gearGroup = new THREE.Group();
       const steelMat = new THREE.MeshStandardMaterial({
         color: 0x94a3b8,
@@ -596,25 +680,15 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
         p.position.set(Math.cos(a) * 0.22, 0.05, Math.sin(a) * 0.22);
         gearGroup.add(p);
       }
-
       const carrierGeo = new THREE.TorusGeometry(0.29, 0.032, 12, 36);
       const carrier = new THREE.Mesh(carrierGeo, steelMat);
       carrier.rotation.x = Math.PI / 2;
       gearGroup.add(carrier);
+      st.geometriesToDispose.push(sunGeo, planetGeo, carrierGeo);
+      st.materialsToDispose.push(steelMat, bronzeMat);
+      registerPart('gears', gearGroup, -0.16, new THREE.Vector3(0, 0, 0), 0.34);
 
-      geometriesToDispose.push(sunGeo, planetGeo, carrierGeo);
-      materialsToDispose.push(steelMat, bronzeMat);
-      registerPart(
-        'gears',
-        gearGroup,
-        -0.16,
-        new THREE.Vector3(0, 0, 0),
-        0.34,
-      );
-    }
-
-    // 5. FLUOROELASTOMER ROTARY SHAFT SEAL (Viton FKM + Stainless Garter Spring)
-    {
+      // 5. Seal
       const sealGroup = new THREE.Group();
       const vitonGeo = new THREE.TorusGeometry(0.18, 0.042, 18, 40);
       const vitonMat = new THREE.MeshStandardMaterial({
@@ -624,7 +698,6 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
       });
       const viton = new THREE.Mesh(vitonGeo, vitonMat);
       viton.rotation.x = Math.PI / 2;
-
       const springGeo = new THREE.TorusGeometry(0.155, 0.011, 10, 40);
       const springMat = new THREE.MeshStandardMaterial({
         color: 0xe2e8f0,
@@ -634,21 +707,12 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
       const spring = new THREE.Mesh(springGeo, springMat);
       spring.rotation.x = Math.PI / 2;
       spring.position.y = 0.025;
-
       sealGroup.add(viton, spring);
-      geometriesToDispose.push(vitonGeo, springGeo);
-      materialsToDispose.push(vitonMat, springMat);
-      registerPart(
-        'seal',
-        sealGroup,
-        -0.36,
-        new THREE.Vector3(0, 0, 0),
-        0.25,
-      );
-    }
+      st.geometriesToDispose.push(vitonGeo, springGeo);
+      st.materialsToDispose.push(vitonMat, springMat);
+      registerPart('seal', sealGroup, -0.36, new THREE.Vector3(0, 0, 0), 0.25);
 
-    // 6. TUNGSTEN-CARBIDE AUGER FLUTE & BIT
-    {
+      // 6. Auger
       const augerGroup = new THREE.Group();
       const shaftGeo = new THREE.CylinderGeometry(0.065, 0.065, 1.05, 24);
       const shaftMat = new THREE.MeshStandardMaterial({
@@ -658,7 +722,6 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
       });
       const shaft = new THREE.Mesh(shaftGeo, shaftMat);
       shaft.position.y = -0.52;
-
       const helixGeo = createHelicalRibbonGeometry(0.062, 0.145, 0.88, 3.2);
       const helixMat = new THREE.MeshStandardMaterial({
         color: 0x475569,
@@ -667,7 +730,6 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
       });
       const helix = new THREE.Mesh(helixGeo, helixMat);
       helix.position.y = -0.14;
-
       const tipGeo = new THREE.ConeGeometry(0.095, 0.22, 6);
       const tipMat = new THREE.MeshStandardMaterial({
         color: 0x27272a,
@@ -677,10 +739,9 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
       const tip = new THREE.Mesh(tipGeo, tipMat);
       tip.rotation.x = Math.PI;
       tip.position.y = -1.14;
-
       augerGroup.add(shaft, helix, tip);
-      geometriesToDispose.push(shaftGeo, helixGeo, tipGeo);
-      materialsToDispose.push(shaftMat, helixMat, tipMat);
+      st.geometriesToDispose.push(shaftGeo, helixGeo, tipGeo);
+      st.materialsToDispose.push(shaftMat, helixMat, tipMat);
       registerPart(
         'auger',
         augerGroup,
@@ -690,10 +751,538 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
       );
     }
 
-    st.renderer = renderer;
-    st.camera = camera;
-    st.controls = controls;
-    st.clipPlane = clipPlane;
+    // ========================================================
+    // PRESET 2: Artemis VIPER Lunar Rover Wheel & Compliant Suspension
+    // ========================================================
+    function buildViperAssembly() {
+      // 1. Compliant wire-mesh tire & grousers
+      const tireGroup = new THREE.Group();
+      const tireMeshGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.44, 36, 6, true);
+      const tireMat = new THREE.MeshStandardMaterial({
+        color: 0x94a3b8,
+        metalness: 0.92,
+        roughness: 0.28,
+        wireframe: false,
+      });
+      const tireMesh = new THREE.Mesh(tireMeshGeo, tireMat);
+      tireMesh.rotation.z = Math.PI / 2;
+      tireGroup.add(tireMesh);
+
+      // Radial chevron grousers (16 cleats)
+      const grouserGeo = new THREE.BoxGeometry(0.035, 0.08, 0.42);
+      const grouserMat = new THREE.MeshStandardMaterial({
+        color: 0x475569,
+        metalness: 0.88,
+        roughness: 0.32,
+      });
+      for (let i = 0; i < 16; i++) {
+        const theta = (i / 16) * Math.PI * 2;
+        const g = new THREE.Mesh(grouserGeo, grouserMat);
+        g.position.set(0, Math.sin(theta) * 0.57, Math.cos(theta) * 0.57);
+        g.rotation.x = theta + 0.15;
+        tireGroup.add(g);
+      }
+      st.geometriesToDispose.push(tireMeshGeo, grouserGeo);
+      st.materialsToDispose.push(tireMat, grouserMat);
+      registerPart('seal', tireGroup, 0.0, new THREE.Vector3(0, 0, 0), 0.58);
+
+      // 2. Hub & Planetary Drive Motor
+      const hubGroup = new THREE.Group();
+      const hubGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.48, 32);
+      const hubMat = new THREE.MeshStandardMaterial({
+        color: 0x334155,
+        metalness: 0.85,
+        roughness: 0.3,
+      });
+      const hub = new THREE.Mesh(hubGeo, hubMat);
+      hub.rotation.z = Math.PI / 2;
+      hubGroup.add(hub);
+
+      const flangeGeo = new THREE.TorusGeometry(0.26, 0.02, 12, 32);
+      const flangeMat = new THREE.MeshStandardMaterial({
+        color: 0xd97706,
+        metalness: 0.9,
+        roughness: 0.25,
+      });
+      const flange = new THREE.Mesh(flangeGeo, flangeMat);
+      flange.rotation.y = Math.PI / 2;
+      flange.position.x = 0.24;
+      hubGroup.add(flange);
+
+      st.geometriesToDispose.push(hubGeo, flangeGeo);
+      st.materialsToDispose.push(hubMat, flangeMat);
+      registerPart('fasteners', hubGroup, 0.0, new THREE.Vector3(0.24, 0, 0), 0.3);
+
+      // 3. Wishbone Suspension Arm
+      const armGroup = new THREE.Group();
+      const armGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.85, 16);
+      const armMat = new THREE.MeshStandardMaterial({
+        color: 0x64748b,
+        metalness: 0.82,
+        roughness: 0.35,
+      });
+      const arm1 = new THREE.Mesh(armGeo, armMat);
+      arm1.position.set(0.28, 0.32, 0.22);
+      arm1.rotation.z = -Math.PI / 4;
+      const arm2 = new THREE.Mesh(armGeo, armMat);
+      arm2.position.set(0.28, 0.32, -0.22);
+      arm2.rotation.z = -Math.PI / 4;
+      armGroup.add(arm1, arm2);
+      st.geometriesToDispose.push(armGeo);
+      st.materialsToDispose.push(armMat);
+      registerPart('housing', armGroup, 0.0, new THREE.Vector3(0.3, 0.35, 0), 0.45);
+
+      // 4. Steer Knuckle & Damper Strut
+      const strutGroup = new THREE.Group();
+      const bodyGeo = new THREE.CylinderGeometry(0.065, 0.065, 0.55, 18);
+      const bodyMat = new THREE.MeshStandardMaterial({
+        color: 0x1e293b,
+        metalness: 0.9,
+        roughness: 0.2,
+      });
+      const strutBody = new THREE.Mesh(bodyGeo, bodyMat);
+      strutBody.position.set(0.36, 0.58, 0);
+
+      const springGeo = new THREE.TorusGeometry(0.09, 0.018, 12, 32);
+      const springMat = new THREE.MeshStandardMaterial({
+        color: 0xef4444,
+        metalness: 0.8,
+        roughness: 0.3,
+      });
+      for (let s = 0; s < 5; s++) {
+        const ring = new THREE.Mesh(springGeo, springMat);
+        ring.rotation.x = Math.PI / 2;
+        ring.position.set(0.36, 0.42 + s * 0.08, 0);
+        strutGroup.add(ring);
+      }
+      strutGroup.add(strutBody);
+      st.geometriesToDispose.push(bodyGeo, springGeo);
+      st.materialsToDispose.push(bodyMat, springMat);
+      registerPart('gears', strutGroup, 0.0, new THREE.Vector3(0.36, 0.58, 0), 0.28);
+    }
+
+    // ========================================================
+    // PRESET 3: Regolith Cryo-Core Sampling Scoop & Articulated Arm
+    // ========================================================
+    function buildScoopAssembly() {
+      // 1. Shoulder Turret Base
+      const turretGroup = new THREE.Group();
+      const baseGeo = new THREE.CylinderGeometry(0.42, 0.46, 0.16, 32);
+      const baseMat = new THREE.MeshStandardMaterial({
+        color: 0x334155,
+        metalness: 0.8,
+        roughness: 0.32,
+      });
+      const turretBase = new THREE.Mesh(baseGeo, baseMat);
+      turretBase.position.y = -0.75;
+      turretGroup.add(turretBase);
+
+      const yawCapGeo = new THREE.CylinderGeometry(0.32, 0.36, 0.24, 28);
+      const yawCap = new THREE.Mesh(yawCapGeo, baseMat);
+      yawCap.position.y = -0.58;
+      turretGroup.add(yawCap);
+      st.geometriesToDispose.push(baseGeo, yawCapGeo);
+      st.materialsToDispose.push(baseMat);
+      registerPart('housing', turretGroup, 0, new THREE.Vector3(0, -0.65, 0), 0.48);
+
+      // 2. Carbon-Fiber Twin Boom Linkage
+      const boomGroup = new THREE.Group();
+      const boomGeo = new THREE.BoxGeometry(0.12, 0.82, 0.14);
+      const boomMat = new THREE.MeshStandardMaterial({
+        color: 0x1e293b,
+        metalness: 0.4,
+        roughness: 0.6,
+      });
+      const boom1 = new THREE.Mesh(boomGeo, boomMat);
+      boom1.position.set(0.14, -0.15, 0);
+      boom1.rotation.z = -0.25;
+      const boom2 = new THREE.Mesh(boomGeo, boomMat);
+      boom2.position.set(-0.14, -0.15, 0);
+      boom2.rotation.z = 0.25;
+      boomGroup.add(boom1, boom2);
+      st.geometriesToDispose.push(boomGeo);
+      st.materialsToDispose.push(boomMat);
+      registerPart('stator', boomGroup, 0, new THREE.Vector3(0, -0.15, 0), 0.42);
+
+      // 3. Rotary Elbow Joint Actuator
+      const elbowGroup = new THREE.Group();
+      const elbowGeo = new THREE.CylinderGeometry(0.19, 0.19, 0.32, 28);
+      const elbowMat = new THREE.MeshStandardMaterial({
+        color: 0x64748b,
+        metalness: 0.9,
+        roughness: 0.22,
+      });
+      const elbow = new THREE.Mesh(elbowGeo, elbowMat);
+      elbow.rotation.x = Math.PI / 2;
+      elbow.position.set(0, 0.32, 0);
+      elbowGroup.add(elbow);
+      st.geometriesToDispose.push(elbowGeo);
+      st.materialsToDispose.push(elbowMat);
+      registerPart('gears', elbowGroup, 0, new THREE.Vector3(0, 0.32, 0), 0.26);
+
+      // 4. Forearm Boom & Wrist Gimbal
+      const wristGroup = new THREE.Group();
+      const foreGeo = new THREE.CylinderGeometry(0.065, 0.08, 0.58, 20);
+      const foreMat = new THREE.MeshStandardMaterial({
+        color: 0xcbd5e1,
+        metalness: 0.85,
+        roughness: 0.25,
+      });
+      const fore = new THREE.Mesh(foreGeo, foreMat);
+      fore.position.set(0.18, 0.62, 0);
+      fore.rotation.z = -0.45;
+      wristGroup.add(fore);
+      st.geometriesToDispose.push(foreGeo);
+      st.materialsToDispose.push(foreMat);
+      registerPart('fasteners', wristGroup, 0, new THREE.Vector3(0.18, 0.62, 0), 0.32);
+
+      // 5. Serrated Cryo-Core Sampling Scoop Head
+      const scoopGroup = new THREE.Group();
+      const bucketGeo = new THREE.CylinderGeometry(0.22, 0.18, 0.28, 18, 1, false, 0, Math.PI);
+      const bucketMat = new THREE.MeshStandardMaterial({
+        color: 0xd4a373,
+        metalness: 0.92,
+        roughness: 0.2,
+      });
+      const bucket = new THREE.Mesh(bucketGeo, bucketMat);
+      bucket.position.set(0.42, 0.88, 0);
+      bucket.rotation.z = -Math.PI / 3;
+
+      // 5 carbide teeth
+      const toothGeo = new THREE.ConeGeometry(0.03, 0.09, 4);
+      const toothMat = new THREE.MeshStandardMaterial({
+        color: 0x18181b,
+        metalness: 0.95,
+        roughness: 0.15,
+      });
+      for (let t = 0; t < 5; t++) {
+        const tooth = new THREE.Mesh(toothGeo, toothMat);
+        tooth.position.set(0.38 + t * 0.04, 0.76, (t - 2) * 0.07);
+        tooth.rotation.z = Math.PI;
+        scoopGroup.add(tooth);
+      }
+      scoopGroup.add(bucket);
+      st.geometriesToDispose.push(bucketGeo, toothGeo);
+      st.materialsToDispose.push(bucketMat, toothMat);
+      registerPart('auger', scoopGroup, 0, new THREE.Vector3(0.42, 0.88, 0), 0.34);
+    }
+
+    // ========================================================
+    // PRESET 4: Cold-Gas Attitude Control Thruster Nozzle
+    // ========================================================
+    function buildThrusterAssembly() {
+      // 1. Supersonic De Laval Exit Bell
+      const bellGroup = new THREE.Group();
+      const bellPts = [
+        new THREE.Vector2(0.08, -0.65),
+        new THREE.Vector2(0.12, -0.5),
+        new THREE.Vector2(0.19, -0.3),
+        new THREE.Vector2(0.28, -0.05),
+        new THREE.Vector2(0.38, 0.22),
+        new THREE.Vector2(0.44, 0.45),
+        new THREE.Vector2(0.45, 0.46),
+        new THREE.Vector2(0.43, 0.46),
+        new THREE.Vector2(0.36, 0.22),
+        new THREE.Vector2(0.26, -0.05),
+        new THREE.Vector2(0.17, -0.3),
+        new THREE.Vector2(0.1, -0.5),
+        new THREE.Vector2(0.065, -0.65),
+      ];
+      const bellGeo = new THREE.LatheGeometry(bellPts, 36);
+      const bellMat = new THREE.MeshStandardMaterial({
+        color: 0x94a3b8,
+        metalness: 0.92,
+        roughness: 0.18,
+      });
+      const bell = new THREE.Mesh(bellGeo, bellMat);
+      bell.position.y = -0.15;
+      bellGroup.add(bell);
+      st.geometriesToDispose.push(bellGeo);
+      st.materialsToDispose.push(bellMat);
+      registerPart('auger', bellGroup, 0, new THREE.Vector3(0, 0, 0), 0.48);
+
+      // 2. Throat Choke & Injector Chamber
+      const throatGroup = new THREE.Group();
+      const throatGeo = new THREE.CylinderGeometry(0.16, 0.16, 0.35, 24);
+      const throatMat = new THREE.MeshStandardMaterial({
+        color: 0x475569,
+        metalness: 0.85,
+        roughness: 0.28,
+      });
+      const throat = new THREE.Mesh(throatGeo, throatMat);
+      throat.position.y = -0.85;
+
+      // Annular cooling fins
+      const finGeo = new THREE.TorusGeometry(0.18, 0.015, 10, 24);
+      const finMat = new THREE.MeshStandardMaterial({
+        color: 0xd97706,
+        metalness: 0.9,
+        roughness: 0.25,
+      });
+      for (const fy of [-0.92, -0.85, -0.78]) {
+        const fin = new THREE.Mesh(finGeo, finMat);
+        fin.rotation.x = Math.PI / 2;
+        fin.position.y = fy;
+        throatGroup.add(fin);
+      }
+      throatGroup.add(throat);
+      st.geometriesToDispose.push(throatGeo, finGeo);
+      st.materialsToDispose.push(throatMat, finMat);
+      registerPart('seal', throatGroup, 0, new THREE.Vector3(0, -0.85, 0), 0.28);
+
+      // 3. Dual Solenoid Valve Manifold Block
+      const valveGroup = new THREE.Group();
+      const blockGeo = new THREE.BoxGeometry(0.36, 0.24, 0.28);
+      const blockMat = new THREE.MeshStandardMaterial({
+        color: 0x1e293b,
+        metalness: 0.78,
+        roughness: 0.35,
+      });
+      const valveBlock = new THREE.Mesh(blockGeo, blockMat);
+      valveBlock.position.y = -1.15;
+
+      const solGeo = new THREE.CylinderGeometry(0.065, 0.065, 0.18, 20);
+      const solMat = new THREE.MeshStandardMaterial({
+        color: 0xef4444,
+        metalness: 0.85,
+        roughness: 0.3,
+      });
+      const sol1 = new THREE.Mesh(solGeo, solMat);
+      sol1.position.set(-0.1, -1.28, 0);
+      const sol2 = new THREE.Mesh(solGeo, solMat);
+      sol2.position.set(0.1, -1.28, 0);
+      valveGroup.add(valveBlock, sol1, sol2);
+      st.geometriesToDispose.push(blockGeo, solGeo);
+      st.materialsToDispose.push(blockMat, solMat);
+      registerPart('housing', valveGroup, 0, new THREE.Vector3(0, -1.15, 0), 0.32);
+
+      // 4. Structural Mounting Flange & Feed Line
+      const mountGroup = new THREE.Group();
+      const flangeGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.05, 8);
+      const flangeMat = new THREE.MeshStandardMaterial({
+        color: 0xcbd5e1,
+        metalness: 0.9,
+        roughness: 0.22,
+      });
+      const mountFlange = new THREE.Mesh(flangeGeo, flangeMat);
+      mountFlange.position.y = -1.34;
+
+      const feedCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, -1.35, 0),
+        new THREE.Vector3(0.24, -1.35, 0.1),
+        new THREE.Vector3(0.35, -1.1, 0.15),
+      ]);
+      const feedGeo = new THREE.TubeGeometry(feedCurve, 16, 0.025, 8, false);
+      const feedMat = new THREE.MeshStandardMaterial({
+        color: 0x94a3b8,
+        metalness: 0.92,
+        roughness: 0.2,
+      });
+      const feedLine = new THREE.Mesh(feedGeo, feedMat);
+      mountGroup.add(mountFlange, feedLine);
+      st.geometriesToDispose.push(flangeGeo, feedGeo);
+      st.materialsToDispose.push(flangeMat, feedMat);
+      registerPart('fasteners', mountGroup, 0, new THREE.Vector3(0, -1.34, 0), 0.35);
+    }
+
+    function rebuildActiveAssembly() {
+      clearAssembly();
+      const presetId = propsRef.current.activePresetId;
+
+      if (presetId === 'viper') {
+        buildViperAssembly();
+      } else if (presetId === 'scoop') {
+        buildScoopAssembly();
+      } else if (presetId === 'thruster') {
+        buildThrusterAssembly();
+      } else if (presetId === 'custom' && propsRef.current.customFile) {
+        loadCustomFile(propsRef.current.customFile);
+        return;
+      } else {
+        buildDrillAssembly();
+      }
+
+      // Update telemetry for preset
+      const presetMeta = CAD_MODEL_PRESETS.find((p) => p.id === presetId) || CAD_MODEL_PRESETS[0];
+      const wearRatio = (propsRef.current.predictedDegradation ?? 0.05) / 0.15;
+      const tele: CadModelTelemetry = {
+        ...presetMeta.defaultTelemetry,
+        degradationStatus: wearRatio >= 1.0 ? 'critical' : wearRatio >= 0.62 ? 'degrading' : 'nominal',
+        wearIndex: +wearRatio.toFixed(2),
+      };
+      setActiveTelemetry(tele);
+      propsRef.current.onTelemetryUpdate?.(tele);
+
+      applyVisualStates();
+      requestRender();
+    }
+
+    st.rebuildActiveAssembly = rebuildActiveAssembly;
+
+    // ========================================================
+    // CUSTOM MODEL LOADER (.glb, .gltf, .obj)
+    // ========================================================
+    function loadCustomFile(file: File) {
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      if (ext !== 'glb' && ext !== 'gltf' && ext !== 'obj') {
+        const errText = `Unsupported CAD file format ".${ext || 'unknown'}". Supported NASA CAD formats: GLTF Binary (.glb), GLTF JSON (.gltf), and Wavefront OBJ (.obj).`;
+        setFileError(errText);
+        setIsLoadingModel(false);
+        return;
+      }
+
+      setFileError(null);
+      setIsLoadingModel(true);
+
+      const objectUrl = URL.createObjectURL(file);
+
+      const handleParsedScene = (loadedScene: THREE.Object3D, formatLabel: string) => {
+        URL.revokeObjectURL(objectUrl);
+        setIsLoadingModel(false);
+        clearAssembly();
+
+        // Compute Bounding Box
+        const box = new THREE.Box3().setFromObject(loadedScene);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+
+        // Center at origin (0, 0, 0)
+        loadedScene.position.x = -center.x;
+        loadedScene.position.y = -center.y;
+        loadedScene.position.z = -center.z;
+
+        const wrapper = new THREE.Group();
+        wrapper.add(loadedScene);
+
+        // Auto-scale to fit within standard camera view bounds
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const targetSize = 2.0;
+        const scale = maxDim > 0.0001 ? targetSize / maxDim : 1.0;
+        wrapper.scale.setScalar(scale);
+
+        let meshCount = 0;
+        let subcomponentCount = 0;
+        let vertexCount = 0;
+        let polygonCount = 0;
+        const customRecords: CustomMeshRecord[] = [];
+
+        loadedScene.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            meshCount++;
+            child.castShadow = !isSoftwareGl;
+            child.receiveShadow = !isSoftwareGl;
+            st.clickableMeshes.push(child);
+
+            const geom = child.geometry;
+            if (geom) {
+              const pos = geom.getAttribute('position');
+              if (pos) vertexCount += pos.count;
+              if (geom.index) {
+                polygonCount += Math.floor(geom.index.count / 3);
+              } else if (pos) {
+                polygonCount += Math.floor(pos.count / 3);
+              }
+            }
+
+            const rawMats = Array.isArray(child.material) ? child.material : [child.material];
+            const stdMats: THREE.MeshStandardMaterial[] = [];
+            const baseCols: THREE.Color[] = [];
+            const baseEmis: THREE.Color[] = [];
+
+            rawMats.forEach((m) => {
+              let std: THREE.MeshStandardMaterial;
+              if (m instanceof THREE.MeshStandardMaterial) {
+                std = m.clone();
+              } else {
+                std = new THREE.MeshStandardMaterial({
+                  color: (m as any).color ? (m as any).color.clone() : new THREE.Color(0x94a3b8),
+                  metalness: 0.82,
+                  roughness: 0.32,
+                  map: (m as any).map || null,
+                });
+              }
+              std.clippingPlanes = [clipPlane];
+              std.clipShadows = true;
+              std.side = THREE.DoubleSide;
+              stdMats.push(std);
+              baseCols.push(std.color.clone());
+              baseEmis.push(std.emissive.clone());
+            });
+
+            child.material = Array.isArray(child.material) ? stdMats : stdMats[0];
+            customRecords.push({
+              mesh: child,
+              materials: stdMats,
+              baseColors: baseCols,
+              baseEmissives: baseEmis,
+              originalPosition: child.position.clone(),
+            });
+          } else if (child instanceof THREE.Group && child !== loadedScene) {
+            subcomponentCount++;
+          }
+        });
+
+        assemblyRoot.add(wrapper);
+        st.customWrapper = wrapper;
+        st.customMeshRecords = customRecords;
+
+        // Bounding Dimensions in cm
+        let unitScale = 100; // default meters to cm
+        if (maxDim > 500) unitScale = 0.1; // mm to cm
+        else if (maxDim > 20) unitScale = 1; // already cm
+        const dimX = +(size.x * unitScale).toFixed(1);
+        const dimY = +(size.y * unitScale).toFixed(1);
+        const dimZ = +(size.z * unitScale).toFixed(1);
+
+        const wearRatio = (propsRef.current.predictedDegradation ?? 0.05) / 0.15;
+        const tele: CadModelTelemetry = {
+          fileName: file.name,
+          format: formatLabel,
+          meshCount,
+          subcomponentCount: Math.max(1, subcomponentCount),
+          vertexCount,
+          polygonCount,
+          dimensionsCm: { x: dimX, y: dimY, z: dimZ },
+          degradationStatus: wearRatio >= 1.0 ? 'critical' : wearRatio >= 0.62 ? 'degrading' : 'nominal',
+          wearIndex: +wearRatio.toFixed(2),
+          fileSize: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+          sourceType: 'custom',
+        };
+
+        setActiveTelemetry(tele);
+        propsRef.current.onTelemetryUpdate?.(tele);
+
+        applyVisualStates();
+        requestRender();
+      };
+
+      const handleFail = (err: any) => {
+        URL.revokeObjectURL(objectUrl);
+        setIsLoadingModel(false);
+        const msg = `Unable to parse CAD model "${file.name}": ${err?.message || 'Unsupported internal structure or corrupted geometry'}.`;
+        setFileError(msg);
+      };
+
+      if (ext === 'glb' || ext === 'gltf') {
+        const loader = new GLTFLoader();
+        loader.load(
+          objectUrl,
+          (gltf) => handleParsedScene(gltf.scene, ext === 'glb' ? 'GLB (Binary GLTF 2.0)' : 'GLTF 2.0 (JSON)'),
+          undefined,
+          handleFail,
+        );
+      } else if (ext === 'obj') {
+        const loader = new OBJLoader();
+        loader.load(
+          objectUrl,
+          (obj) => handleParsedScene(obj, 'Wavefront OBJ (.obj)'),
+          undefined,
+          handleFail,
+        );
+      }
+    }
+
+    st.loadCustomFile = loadCustomFile;
 
     // Raycasting click handler
     const raycaster = new THREE.Raycaster();
@@ -709,14 +1298,14 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
         e.clientX - pointerDownPos.x,
         e.clientY - pointerDownPos.y,
       );
-      if (moved > 6) return; // Ignore orbit drags
+      if (moved > 6) return;
 
       const rect = renderer.domElement.getBoundingClientRect();
       pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
       raycaster.setFromCamera(pointer, camera);
-      const hits = raycaster.intersectObjects(clickableMeshes, false);
+      const hits = raycaster.intersectObjects(st.clickableMeshes, false);
       if (hits.length > 0) {
         const hitId = hits[0].object.userData.partId as CadPartId | undefined;
         if (hitId) propsRef.current.onSelectPart(hitId);
@@ -745,7 +1334,7 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
       (Object.keys(st.partGroups) as CadPartId[]).forEach((id) => {
         const grp = st.partGroups[id];
         if (!grp) return;
-        _projVec.copy(st.anchorLocalOffsets[id]).applyMatrix4(grp.matrixWorld);
+        _projVec.copy(st.anchorLocalOffsets[id] || new THREE.Vector3(0, 0, 0)).applyMatrix4(grp.matrixWorld);
         _projVec.project(camera);
         out[id] = {
           id,
@@ -758,9 +1347,16 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
     }
 
     function applyVisualStates() {
-      const { isolatedPartId: iso, selectedPartId: sel, degradationStates: deg } =
-        propsRef.current;
+      const {
+        isolatedPartId: iso,
+        selectedPartId: sel,
+        degradationStates: deg,
+        predictedDegradation: pDeg = 0.05,
+      } = propsRef.current;
 
+      const wearRatio = pDeg / 0.15; // 0.15 mg/cm² critical threshold
+
+      // Update Procedural Presets
       (Object.keys(st.partGroups) as CadPartId[]).forEach((id) => {
         const mats = st.partMaterials[id] || [];
         const baseColors = st.partBaseColors[id] || [];
@@ -769,8 +1365,8 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
 
         const isIsolatedOut = iso !== null && iso !== id;
         const isSelected = sel === id;
-        const isCritical = degState?.status === 'critical';
-        const isDegrading = degState?.status === 'degrading';
+        const isCritical = degState ? degState.status === 'critical' : wearRatio >= 1.0;
+        const isDegrading = degState ? degState.status === 'degrading' : wearRatio >= 0.62;
 
         if (failGrp) {
           failGrp.visible = Boolean(isCritical) && !isIsolatedOut;
@@ -788,6 +1384,7 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
             m.opacity = 1.0;
             m.depthWrite = true;
             m.color.copy(baseCol);
+
             if (isCritical) {
               m.color.lerp(new THREE.Color(0xb91c1c), 0.38);
               m.emissive.setHex(0x3f0a0a);
@@ -802,6 +1399,34 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
           }
         });
       });
+
+      // Update Custom CAD Model Mesh Shading (interpolating nominal green, degraded amber, critical red)
+      if (st.customMeshRecords.length > 0) {
+        st.customMeshRecords.forEach(({ materials, baseColors, baseEmissives }) => {
+          materials.forEach((m, idx) => {
+            const baseCol = baseColors[idx] || new THREE.Color(0x94a3b8);
+            const baseEmis = baseEmissives[idx] || new THREE.Color(0x000000);
+            m.color.copy(baseCol);
+
+            if (wearRatio >= 1.0) {
+              // Critical Alert Red
+              const t = Math.min(0.65, 0.35 + (wearRatio - 1.0) * 0.25);
+              m.color.lerp(new THREE.Color(0xb91c1c), t);
+              m.emissive.setHex(0x3f0a0a);
+            } else if (wearRatio >= 0.62) {
+              // Degraded Amber
+              const t = Math.min(0.48, 0.2 + ((wearRatio - 0.62) / 0.38) * 0.22);
+              m.color.lerp(new THREE.Color(0xd97706), t);
+              m.emissive.setHex(0x1c1002);
+            } else {
+              // Nominal Aerospace Green Tint
+              const t = Math.min(0.22, (wearRatio / 0.62) * 0.16);
+              m.color.lerp(new THREE.Color(0x059669), t);
+              m.emissive.copy(baseEmis);
+            }
+          });
+        });
+      }
     }
 
     function afterDraw(cb: () => void) {
@@ -834,9 +1459,8 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
         lastTime = now;
         renderDirty = false;
 
-        // Smooth damped exploded-view separation
+        // Smooth exploded view damp
         const targetExp = propsRef.current.exploded ? 1 : 0;
-        const prevExp = st.explodeProgress;
         st.explodeProgress = THREE.MathUtils.damp(
           st.explodeProgress,
           targetExp,
@@ -849,14 +1473,22 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
           st.explodeProgress = targetExp;
         }
 
-        if (Math.abs(st.explodeProgress - prevExp) > 0.0001 || true) {
-          (Object.keys(st.partGroups) as CadPartId[]).forEach((id) => {
-            const grp = st.partGroups[id];
-            const base = st.basePositions[id];
-            const off = st.explodeOffsets[id];
-            if (grp && base && off) {
-              grp.position.copy(base).addScaledVector(off, st.explodeProgress);
-            }
+        // Apply explosion to procedural parts
+        (Object.keys(st.partGroups) as CadPartId[]).forEach((id) => {
+          const grp = st.partGroups[id];
+          const base = st.basePositions[id];
+          const off = st.explodeOffsets[id];
+          if (grp && base && off) {
+            grp.position.copy(base).addScaledVector(off, st.explodeProgress);
+          }
+        });
+
+        // Apply radial separation to custom CAD parts if exploded
+        if (st.customMeshRecords.length > 0) {
+          st.customMeshRecords.forEach(({ mesh, originalPosition }) => {
+            const dir = originalPosition.clone().normalize();
+            if (dir.lengthSq() < 0.01) dir.set(0, 1, 0);
+            mesh.position.copy(originalPosition).addScaledVector(dir, st.explodeProgress * 0.28);
           });
         }
 
@@ -916,7 +1548,8 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
     };
     renderer.domElement.addEventListener('webglcontextlost', handleContextLost);
 
-    requestRender();
+    // Initial build
+    rebuildActiveAssembly();
 
     return () => {
       disposed = true;
@@ -930,8 +1563,7 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
         handleContextLost,
       );
       controls.dispose();
-      geometriesToDispose.forEach((g) => g.dispose());
-      materialsToDispose.forEach((m) => m.dispose());
+      clearAssembly();
       shadowPlane.geometry.dispose();
       (shadowPlane.material as THREE.Material).dispose();
       contactShadowTex.dispose();
@@ -943,6 +1575,40 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
     };
   }, []);
 
+  // Drag and Drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      onCustomFileSelect?.(file);
+      onSelectPreset?.('custom');
+      sceneStateRef.current.loadCustomFile?.(file);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      onCustomFileSelect?.(file);
+      onSelectPreset?.('custom');
+      sceneStateRef.current.loadCustomFile?.(file);
+    }
+  };
+
   if (webglError) {
     return (
       <div
@@ -953,22 +1619,181 @@ export const EquipmentTwin3D: React.FC<EquipmentTwin3DProps> = ({
             3D CAD Viewport Unavailable
           </p>
           <p className="text-xs text-[#414943] mt-1">
-            Inspect part damage indices and failure mechanisms in the right diagnostic ledger.
+            Hardware acceleration disabled. Inspect failure mechanisms in the right diagnostic ledger.
           </p>
         </div>
       </div>
     );
   }
 
+  const activePreset = CAD_MODEL_PRESETS.find((p) => p.id === activePresetId);
+
   return (
     <div
-      className={`relative w-full h-full overflow-hidden ${className}`}
+      className={`relative w-full h-full overflow-hidden select-none ${className}`}
       style={{
         background:
           'radial-gradient(circle at 50% 44%, #F4F5F7 0%, #EAECEF 68%, #DFE3E8 100%)',
       }}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
+
+      {/* Hidden CAD File Input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".glb,.gltf,.obj"
+        className="hidden"
+        onChange={handleFileInputChange}
+      />
+
+      {/* Drag & Drop Visual Backdrop Overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 bg-[#0F172A]/85 backdrop-blur-sm border-2 border-dashed border-[#10B981] flex flex-col items-center justify-center text-white z-40 transition-all">
+          <div className="w-16 h-16 rounded-3xl bg-[#10B981]/20 border border-[#10B981]/50 flex items-center justify-center mb-3 animate-bounce">
+            <Upload className="w-8 h-8 text-[#10B981]" />
+          </div>
+          <h3 className="text-lg font-bold">Drop NASA CAD Model Here</h3>
+          <p className="text-xs text-[#94A3B8] mt-1 max-w-sm text-center">
+            Supports <strong>.glb</strong>, <strong>.gltf</strong>, and <strong>.obj</strong> formats. Instant origin alignment, auto-scale, and wear degradation shading.
+          </p>
+        </div>
+      )}
+
+      {/* Loading Model Spinner Overlay */}
+      {isLoadingModel && (
+        <div className="absolute inset-0 bg-[#0F172A]/80 backdrop-blur-xs flex flex-col items-center justify-center text-white z-30">
+          <div className="w-10 h-10 border-3 border-[#10B981] border-t-transparent rounded-full animate-spin mb-3" />
+          <div className="text-xs font-mono font-bold text-[#E2E8F0]">
+            Ingesting NASA CAD Asset...
+          </div>
+          <div className="text-[10px] font-mono text-[#94A3B8] mt-1">
+            Centering Bounding Envelope &amp; Compiling Degradation Shaders
+          </div>
+        </div>
+      )}
+
+      {/* Invalid File Graceful Fallback Error Banner */}
+      {fileError && (
+        <div className="absolute top-4 left-4 right-4 bg-[#7F1D1D]/95 backdrop-blur-md border border-[#F87171] rounded-2xl p-4 text-white z-30 shadow-lg flex items-start justify-between gap-3 animate-in fade-in duration-200">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-[#FCA5A5] shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <h4 className="text-xs font-bold text-[#FEE2E2]">
+                CAD Ingestion Alert
+              </h4>
+              <p className="text-[11px] text-[#FECACA] leading-relaxed">
+                {fileError}
+              </p>
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-3 py-1 rounded-lg bg-[#DC2626] hover:bg-[#B91C1C] text-[10px] font-bold uppercase tracking-wider text-white transition-all cursor-pointer"
+                >
+                  Browse Valid CAD File
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFileError(null);
+                    onSelectPreset?.('drill');
+                  }}
+                  className="px-3 py-1 rounded-lg bg-[#FFFFFF]/15 hover:bg-[#FFFFFF]/25 text-[10px] font-bold text-white transition-all cursor-pointer"
+                >
+                  Reset to TX-DRL-40 Drill
+                </button>
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFileError(null)}
+            className="p-1 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Telemetry HUD (Top-Left) */}
+      {showControlsOverlay && (
+        <div className="pointer-events-none absolute top-3 left-3 bg-[#0F172A]/90 backdrop-blur-md border border-[#334155] rounded-xl px-3 py-2 text-white shadow-md z-10 max-w-xs">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-mono text-[#94A3B8] uppercase tracking-wider truncate">
+              {activeTelemetry?.fileName || activePreset?.name || 'TX-DRL-40 Assembly'}
+            </span>
+            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-[#334155] text-[#CBD5E1]">
+              {activeTelemetry?.format || 'CAD'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 mt-1">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                activeTelemetry?.degradationStatus === 'critical'
+                  ? 'bg-[#EF4444] animate-ping'
+                  : activeTelemetry?.degradationStatus === 'degrading'
+                    ? 'bg-[#F59E0B]'
+                    : 'bg-[#10B981]'
+              }`}
+            />
+            <span className="text-xs font-bold font-mono">
+              {activeTelemetry?.degradationStatus === 'critical'
+                ? 'CRITICAL WEAR EXCEEDED'
+                : activeTelemetry?.degradationStatus === 'degrading'
+                  ? 'ACCELERATED WEAR'
+                  : 'NOMINAL ENVELOPE'}
+            </span>
+            {activeTelemetry && (
+              <span className="text-[10px] font-mono text-[#94A3B8] ml-auto">
+                {activeTelemetry.wearIndex}×
+              </span>
+            )}
+          </div>
+
+          {activeTelemetry && (
+            <div className="mt-1.5 pt-1.5 border-t border-[#334155]/80 text-[10px] font-mono text-[#94A3B8] grid grid-cols-2 gap-x-2 gap-y-0.5">
+              <div>
+                Meshes: <strong className="text-white">{activeTelemetry.meshCount}</strong>
+              </div>
+              <div>
+                Polys: <strong className="text-white">{(activeTelemetry.polygonCount / 1000).toFixed(1)}k</strong>
+              </div>
+              <div className="col-span-2 truncate">
+                Bounds: <strong className="text-white">{activeTelemetry.dimensionsCm.x}×{activeTelemetry.dimensionsCm.y}×{activeTelemetry.dimensionsCm.z} cm</strong>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Floating Canvas Quick Action Toolbar (Top-Right) */}
+      <div className="absolute top-3 right-3 flex items-center gap-2 z-20">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="px-3 py-1.5 rounded-xl bg-[#0F172A]/90 hover:bg-[#1E293B] text-white border border-[#334155] text-xs font-semibold flex items-center gap-1.5 shadow-md backdrop-blur-md transition-all cursor-pointer"
+          title="Upload Custom NASA CAD Model (.glb, .gltf, .obj)"
+        >
+          <Upload className="w-3.5 h-3.5 text-[#10B981]" />
+          <span>Upload CAD</span>
+        </button>
+      </div>
+
+      {/* Bottom Gesture Hint & Format Support */}
+      <div className="pointer-events-none absolute bottom-3 left-3 right-3 flex items-center justify-between text-[10px] font-mono text-[#64748B] z-10">
+        <span className="bg-[#0F172A]/80 backdrop-blur-md border border-[#334155]/60 rounded-lg px-2.5 py-1 text-[#94A3B8]">
+          NASA CAD: .glb · .gltf · .obj
+        </span>
+        <span className="bg-[#0F172A]/80 backdrop-blur-md border border-[#334155]/60 rounded-lg px-2.5 py-1 text-[#94A3B8]">
+          Orbit: Drag · Pan: Right-Click · Zoom: Scroll
+        </span>
+      </div>
     </div>
   );
 };

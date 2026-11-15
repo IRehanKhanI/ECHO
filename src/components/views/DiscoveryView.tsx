@@ -3,7 +3,10 @@ import {
   ArrowLeft,
   ArrowRight,
   Database,
+  FlaskConical,
   Globe,
+  Layers,
+  MapPin,
   Mountain,
   RotateCw,
   Search,
@@ -14,6 +17,7 @@ import {
 } from 'lucide-react';
 import {
   EARTH_CANDIDATE_SITES,
+  getSiteSulfurPpm,
 } from '../../data/planetaryData';
 import {
   DimensionKey,
@@ -34,12 +38,6 @@ export const SITE_COUNTRY_FLAGS: Record<string, string> = {
   black_point: '🇺🇸',
   haughton_crater: '🇨🇦',
   atacama_yungay: '🇨🇱',
-  atacama_pajonales: '🇨🇱',
-  stillwater: '🇺🇸',
-  shawmere: '🇨🇦',
-  craters_moon: '🇺🇸',
-  san_francisco_volcanic: '🇺🇸',
-  mojave_silver_lake: '🇺🇸',
   pilbara: '🇦🇺',
   death_valley: '🇺🇸',
   negev_dmars: '🇮🇱',
@@ -49,8 +47,26 @@ export const SITE_COUNTRY_FLAGS: Record<string, string> = {
   kilauea: '🇺🇸',
   salar_gorbea: '🇨🇱',
   svalbard: '🇳🇴',
+  stillwater: '🇺🇸',
+  shawmere: '🇨🇦',
+  atacama_pajonales: '🇨🇱',
+  craters_moon: '🇺🇸',
   salar_pedernales: '🇨🇱',
   victoria_valley: '🇦🇶',
+  putana_fumarole: '🇨🇱',
+  lastarria: '🇨🇱',
+  hekla: '🇮🇸',
+  axel_heiberg: '🇨🇦',
+  disko_island: '🇬🇱',
+  mojave: '🇺🇸',
+  taklamakan: '🇨🇳',
+  salar_antofalla: '🇦🇷',
+  cerro_galan: '🇦🇷',
+  mount_fleming: '🇦🇶',
+  allan_hills: '🇦🇶',
+  // Historical aliases
+  san_francisco_volcanic: '🇺🇸',
+  mojave_silver_lake: '🇺🇸',
 };
 
 export const SITE_BIOME_ICONS: Record<string, string> = {
@@ -58,12 +74,6 @@ export const SITE_BIOME_ICONS: Record<string, string> = {
   black_point: '🌋',
   haughton_crater: '🕳️',
   atacama_yungay: '🏜️',
-  atacama_pajonales: '🏜️',
-  stillwater: '🌋',
-  shawmere: '🌋',
-  craters_moon: '🌋',
-  san_francisco_volcanic: '🌋',
-  mojave_silver_lake: '🏜️',
   pilbara: '🌋',
   death_valley: '🏜️',
   negev_dmars: '🏜️',
@@ -73,8 +83,26 @@ export const SITE_BIOME_ICONS: Record<string, string> = {
   kilauea: '🌋',
   salar_gorbea: '🌋',
   svalbard: '❄️',
+  stillwater: '🌋',
+  shawmere: '🌋',
+  atacama_pajonales: '🏜️',
+  craters_moon: '🌋',
   salar_pedernales: '🏜️',
   victoria_valley: '❄️',
+  putana_fumarole: '🌋',
+  lastarria: '🌋',
+  hekla: '🌋',
+  axel_heiberg: '❄️',
+  disko_island: '🌋',
+  mojave: '🏜️',
+  taklamakan: '🏜️',
+  salar_antofalla: '🏜️',
+  cerro_galan: '🌋',
+  mount_fleming: '❄️',
+  allan_hills: '❄️',
+  // Historical aliases
+  san_francisco_volcanic: '🌋',
+  mojave_silver_lake: '🏜️',
 };
 
 export const SITE_ONE_LINERS: Record<string, string> = {
@@ -86,18 +114,6 @@ export const SITE_ONE_LINERS: Record<string, string> = {
     '23-km Arctic impact structure in cold polar desert reproducing shattered impact melt and shatter cones.',
   atacama_yungay:
     'Hyper-arid desert core with near-zero precipitation, perchlorate salts, and extreme diurnal solar UV flux.',
-  atacama_pajonales:
-    'High-altitude gypsum crusts with intense diurnal UV radiation and hyper-aridity matching lunar exposed regolith.',
-  stillwater:
-    'Archean stratiform anorthosite complex with 90%+ calcic plagioclase matching lunar ferroan anorthosite highlands.',
-  shawmere:
-    'Precambrian high-pressure anorthosite massif with coarse bytownite plagioclase analogous to Apollo 16 highland regolith.',
-  craters_moon:
-    'Holocene flood basalt flow fields, cinder cones, and lava tubes used historically for Apollo astronaut field geology.',
-  san_francisco_volcanic:
-    'Extensive basaltic cinders, spatter cones, and lava tubes utilized in Desert RATS rover and suit mobility trials.',
-  mojave_silver_lake:
-    'Hyper-arid playa mudflats and gravel corridors ideal for long-range robotic mobility and wheel-traction characterization.',
   pilbara:
     'Ancient 3.5-billion-year-old basaltic greenstone terrain with silicified hydrothermal deposits and rugged scarps.',
   death_valley:
@@ -116,10 +132,44 @@ export const SITE_ONE_LINERS: Record<string, string> = {
     'High-altitude acidic volcanic salar with massive native sulfur deposits and cryogenic thermal swings.',
   svalbard:
     'High-Arctic archipelago with permafrost, volcanic necks, and hydrothermal carbonate deposits for cryogenic testing.',
+  stillwater:
+    'Archean stratiform anorthosite complex with 90%+ calcic plagioclase matching lunar ferroan anorthosite highlands.',
+  shawmere:
+    'Precambrian high-pressure anorthosite massif with coarse bytownite plagioclase analogous to Apollo 16 highland regolith.',
+  atacama_pajonales:
+    'High-altitude gypsum crusts with intense diurnal UV radiation and hyper-aridity matching lunar exposed regolith.',
+  craters_moon:
+    'Holocene flood basalt flow fields, cinder cones, and lava tubes used historically for Apollo astronaut field geology.',
   salar_pedernales:
     'Virgin high-Andean evaporite basin never utilized in prior NASA campaigns; pristine borate and sulfate crystal flats.',
   victoria_valley:
     'Pristine Dry Valleys polar corridor featuring active permafrost barchan dunes unvisited by human field trials.',
+  putana_fumarole:
+    'Active high-altitude stratovolcano summit with boiling sulfur solfataras and cryogenic diurnal swings.',
+  lastarria:
+    'Rare active volcanic liquid sulfur flows and fumarolic conduits matching volatile-rich planetary crusts.',
+  hekla:
+    'Active sub-polar stratovolcano surrounded by expansive tephra fields, black basaltic ash, and fresh lava.',
+  axel_heiberg:
+    'Perennial sub-zero hyper-saline springs discharging through permafrost near massive salt diapirs.',
+  disko_island:
+    'Rare terrestrial native telluric iron basalt flows with coastal columnar basalt cliffs in Arctic permafrost.',
+  mojave:
+    'Hyper-arid playa mudflats and gravel corridors ideal for long-range robotic mobility and wheel-traction characterization.',
+  taklamakan:
+    'Hyper-arid shifting megadunes, yardang corridors, and salt crusts within the enclosed Tarim Basin.',
+  salar_antofalla:
+    '150-km ultra-long evaporite scarp and lithium-borate crusts flanked by severe volcanic fault scarps.',
+  cerro_galan:
+    'Massive 40-km resurgent ignimbrite caldera with extreme altitude, UV radiation, and hyper-saline lake.',
+  mount_fleming:
+    'Sandstone nunatak protruding above polar glaciers with wind-sculpted ventifacts and endolithic niches.',
+  allan_hills:
+    'Ancient Antarctic blue-ice stranding margin where sub-surface meteorite concentrations survive for millennia.',
+  san_francisco_volcanic:
+    'Extensive basaltic cinders, spatter cones, and lava tubes utilized in Desert RATS rover and suit mobility trials.',
+  mojave_silver_lake:
+    'Hyper-arid playa mudflats and gravel corridors ideal for long-range robotic mobility and wheel-traction characterization.',
 };
 
 export const getCountryFlag = (site: { id: string; country?: string }): string => {
@@ -134,7 +184,89 @@ export const getCountryFlag = (site: { id: string; country?: string }): string =
   if (c.includes('israel')) return '🇮🇱';
   if (c.includes('finland')) return '🇫🇮';
   if (c.includes('china')) return '🇨🇳';
+  if (c.includes('iceland')) return '🇮🇸';
+  if (c.includes('greenland')) return '🇬🇱';
+  if (c.includes('argentina')) return '🇦🇷';
   return '🌐';
+};
+
+/** Procedural Geological Biome Fallback if image fails to load or is offline */
+interface ProceduralBiomeFallbackProps {
+  site: EarthCandidateSite;
+  className?: string;
+}
+
+export const ProceduralBiomeFallback: React.FC<ProceduralBiomeFallbackProps> = ({ site, className = '' }) => {
+  const category = site.analogueCategory || 'basalt_volcanic';
+  const flag = getCountryFlag(site);
+  const icon = SITE_BIOME_ICONS[site.id] || '🌍';
+
+  let gradientClass = 'from-[#1e293b] via-[#334155] to-[#0f172a]';
+  let accentColor = '#94a3b8';
+  let categoryLabel = 'Geological Analog';
+
+  if (category === 'basalt_volcanic') {
+    gradientClass = 'from-[#1c1917] via-[#292524] to-[#451a03]';
+    accentColor = '#f97316';
+    categoryLabel = 'Basaltic Volcanic';
+  } else if (category === 'cold_polar') {
+    gradientClass = 'from-[#082f49] via-[#0369a1] to-[#0c4a6e]';
+    accentColor = '#38bdf8';
+    categoryLabel = 'Cryogenic Polar';
+  } else if (category === 'arid_saline') {
+    gradientClass = 'from-[#451a03] via-[#78350f] to-[#92400e]';
+    accentColor = '#fbbf24';
+    categoryLabel = 'Hyper-Arid Salar';
+  } else if (category === 'impact_terrain') {
+    gradientClass = 'from-[#18181b] via-[#27272a] to-[#3f3f46]';
+    accentColor = '#a1a1aa';
+    categoryLabel = 'Impact Structure';
+  } else if (category === 'subsurface') {
+    gradientClass = 'from-[#0f172a] via-[#1e1b4b] to-[#1e293b]';
+    accentColor = '#818cf8';
+    categoryLabel = 'Subterranean Mine';
+  }
+
+  return (
+    <div
+      className={`relative w-full h-full min-h-[150px] bg-gradient-to-br ${gradientClass} flex flex-col justify-between p-3 overflow-hidden select-none ${className}`}
+    >
+      <svg
+        className="absolute inset-0 w-full h-full opacity-20 pointer-events-none"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 200 200"
+        preserveAspectRatio="none"
+      >
+        <path d="M-20,60 Q40,20 100,50 T220,40" fill="none" stroke={accentColor} strokeWidth="1.5" />
+        <path d="M-20,90 Q50,60 110,85 T220,70" fill="none" stroke={accentColor} strokeWidth="1.5" />
+        <path d="M-20,120 Q30,100 100,120 T220,105" fill="none" stroke={accentColor} strokeWidth="1.5" />
+        <path d="M-20,150 Q60,130 120,155 T220,140" fill="none" stroke={accentColor} strokeWidth="1.5" />
+        <path d="M-20,180 Q40,165 100,185 T220,175" fill="none" stroke={accentColor} strokeWidth="1.5" />
+      </svg>
+
+      <div className="relative z-10 flex items-center justify-between">
+        <span className="px-2 py-0.5 rounded-md bg-black/50 backdrop-blur-sm border border-white/15 text-[10px] font-semibold text-white flex items-center gap-1">
+          <span>{icon}</span>
+          <span>{categoryLabel}</span>
+        </span>
+        <span className="text-base drop-shadow">{flag}</span>
+      </div>
+
+      <div className="relative z-10 flex flex-col items-center justify-center my-auto py-2 text-center">
+        <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center shadow-inner mb-1">
+          <Mountain className="w-5 h-5 text-white/80" />
+        </div>
+        <span className="text-[10px] font-mono tracking-wider uppercase text-white/80">
+          In-Situ Geological Terrain
+        </span>
+      </div>
+
+      <div className="relative z-10 flex items-center justify-between text-[10px] font-mono text-white/80 border-t border-white/10 pt-1.5">
+        <span>{site.elevationM.toLocaleString()}m Elev</span>
+        <span>{site.coordinates.split(',')[0]}</span>
+      </div>
+    </div>
+  );
 };
 
 export interface DiscoveryViewProps {
@@ -172,6 +304,12 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
   const [activeFilter, setActiveFilter] = useState<'all' | 'volcanic' | 'polar' | 'desert'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [autoRotate, setAutoRotate] = useState<boolean>(false);
+  const [showOverlay, setShowOverlay] = useState<boolean>(false);
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+
+  const handleImageError = (siteId: string) => {
+    setImageErrors((prev) => ({ ...prev, [siteId]: true }));
+  };
 
   // Dynamic database state
   const [backendMatches, setBackendMatches] = useState<EarthAnalogResult[] | null>(null);
@@ -350,20 +488,43 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
       if (activeFilter === 'volcanic') {
         matchesFilter =
           site.analogueCategory === 'basalt_volcanic' ||
-          ['black_point', 'kilauea', 'pilbara', 'salar_gorbea', 'stillwater', 'shawmere', 'craters_moon'].includes(
-            site.id,
-          ) ||
+          [
+            'black_point',
+            'kilauea',
+            'pilbara',
+            'salar_gorbea',
+            'stillwater',
+            'shawmere',
+            'craters_moon',
+            'putana_fumarole',
+            'lastarria',
+            'hekla',
+            'disko_island',
+            'cerro_galan',
+            'san_francisco_volcanic',
+          ].includes(site.id) ||
           (site.geologySummary
             ? site.geologySummary.toLowerCase().includes('basalt') ||
-              site.geologySummary.toLowerCase().includes('anorthosite')
+              site.geologySummary.toLowerCase().includes('anorthosite') ||
+              site.geologySummary.toLowerCase().includes('volcan')
             : false);
       } else if (activeFilter === 'polar') {
         matchesFilter =
           site.analogueCategory === 'cold_polar' ||
-          ['univ_valley', 'svalbard', 'haughton_crater', 'pyhasalmi_mine', 'victoria_valley'].includes(site.id) ||
+          [
+            'univ_valley',
+            'svalbard',
+            'haughton_crater',
+            'pyhasalmi_mine',
+            'victoria_valley',
+            'axel_heiberg',
+            'mount_fleming',
+            'allan_hills',
+          ].includes(site.id) ||
           site.biomeCharacter.toLowerCase().includes('polar') ||
           site.biomeCharacter.toLowerCase().includes('permafrost') ||
-          site.biomeCharacter.toLowerCase().includes('cold');
+          site.biomeCharacter.toLowerCase().includes('cold') ||
+          site.biomeCharacter.toLowerCase().includes('ice');
       } else if (activeFilter === 'desert') {
         matchesFilter =
           site.analogueCategory === 'arid_saline' ||
@@ -377,9 +538,14 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
             'negev_dmars',
             'mdrs_utah',
             'qaidam_basin',
+            'mojave',
             'mojave_silver_lake',
+            'taklamakan',
+            'salar_antofalla',
           ].includes(site.id) ||
-          site.biomeCharacter.toLowerCase().includes('arid');
+          site.biomeCharacter.toLowerCase().includes('arid') ||
+          site.biomeCharacter.toLowerCase().includes('playa') ||
+          site.biomeCharacter.toLowerCase().includes('salar');
       }
 
       if (!matchesFilter) return false;
@@ -580,90 +746,148 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
                 site.geologySummary ||
                 'High-altitude terrestrial analog for lunar surface equipment qualification.';
               const minTemp = Math.min(...site.monthlyMinTempC);
+              const sulfurPpm = getSiteSulfurPpm(site);
 
               return (
                 <div
                   key={site.id}
                   onClick={() => onSelectSite(site.id)}
-                  className={`rounded-2xl transition-all cursor-pointer p-4 sm:p-5 ${
+                  className={`group rounded-2xl transition-all cursor-pointer p-3.5 sm:p-4 border ${
                     isSelected
                       ? 'bg-[#FFFFFF] border-2 border-[#184633] shadow-md ring-2 ring-[#184633]/15'
-                      : 'bg-[#FFFFFF] border border-[#414943]/12 hover:border-[#184633]/40 shadow-soft-card hover:shadow-md'
+                      : 'bg-[#FFFFFF] border-[#414943]/12 hover:border-[#184633]/40 shadow-soft-card hover:shadow-md'
                   }`}
                 >
-                  {/* Top Row: Country flag + Site name + match badge */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <span className="text-2xl p-1.5 rounded-xl bg-[#FAF7F2] border border-[#414943]/10 shrink-0">
-                        {flag}
-                      </span>
+                  <div className="flex flex-col sm:flex-row items-stretch gap-4">
+                    {/* Left: Authentic Landscape / Aerial Photo Thumbnail */}
+                    <div className="relative w-full sm:w-48 md:w-52 h-44 sm:h-auto min-h-[160px] rounded-xl overflow-hidden bg-[#FAF7F2] shrink-0 border border-[#414943]/10">
+                      {!imageErrors[site.id] && site.imageUrl ? (
+                        <>
+                          <img
+                            src={site.imageUrl}
+                            alt={`${site.name} analog terrain`}
+                            loading="lazy"
+                            onError={() => handleImageError(site.id)}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                          />
+                          {/* Top & bottom subtle gradient scrim */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/30 pointer-events-none" />
+
+                          {/* Top Badges Overlay */}
+                          <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">
+                            <span className="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md border border-white/20 text-[10px] font-semibold text-white flex items-center gap-1 shadow-xs">
+                              <span>{SITE_BIOME_ICONS[site.id] || '🌍'}</span>
+                              <span className="capitalize">{site.analogueCategory?.replace('_', ' ') || 'Analog'}</span>
+                            </span>
+
+                            {!site.isCatalogKnown && (
+                              <span className="px-2 py-0.5 rounded-md bg-[#A33E11] text-white border border-amber-300/40 text-[9px] font-bold tracking-wider uppercase shadow-xs flex items-center gap-0.5">
+                                <Sparkles className="w-2.5 h-2.5" />
+                                <span>NOVEL</span>
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Bottom Badges Overlay: Match Score & Elevation */}
+                          <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between pointer-events-none">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-mono font-bold bg-[#EAF4EE] text-[#0F422E] border border-[#2A5A44]/30 shadow-xs">
+                              <Sparkles className="w-3 h-3 text-[#0F422E]" />
+                              <span>{matchScore}% Match</span>
+                            </span>
+
+                            <span className="text-[10px] font-mono text-white/90 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded border border-white/10">
+                              {site.elevationM.toLocaleString()}m
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <ProceduralBiomeFallback site={site} />
+                      )}
+                    </div>
+
+                    {/* Right: Site Details */}
+                    <div className="flex-1 flex flex-col justify-between space-y-2.5 min-w-0">
                       <div>
-                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-[#696156]">
-                          <span className="font-semibold">{site.country}</span>
-                          <span>·</span>
-                          <span>{site.region}</span>
+                        {/* Country Flag + Country + Region + New Candidate Badge */}
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                          <span className="text-sm">{flag}</span>
+                          <span className="font-semibold text-[#1D1B17]">{site.country}</span>
+                          <span className="text-[#696156]">·</span>
+                          <span className="text-[#696156] truncate max-w-[200px] sm:max-w-[260px]">{site.region}</span>
                           {!site.isCatalogKnown && (
-                            <span className="px-2 py-0.5 rounded-full bg-[#FDF2EC] border border-[#F87171]/40 text-[10px] font-bold text-[#A33E11] uppercase tracking-wider inline-flex items-center gap-1">
+                            <span className="px-2 py-0.5 rounded-full bg-[#FDF2EC] border border-[#F87171]/40 text-[10px] font-bold text-[#A33E11] uppercase tracking-wider inline-flex items-center gap-1 ml-auto">
                               <Sparkles className="w-2.5 h-2.5 text-[#A33E11]" />
                               <span>NEW UNEXPLORED CANDIDATE</span>
                             </span>
                           )}
                         </div>
-                        <h3 className="font-display font-bold text-base sm:text-lg text-[#1D1B17] tracking-tight leading-snug">
+
+                        {/* Site Name */}
+                        <h3 className="font-display font-bold text-base sm:text-lg text-[#1D1B17] tracking-tight group-hover:text-[#184633] transition-colors leading-snug mt-1">
                           {site.name}
                         </h3>
+
+                        {/* Clean 1-Sentence Geological Summary - No ugly box-in-box nesting */}
+                        <p className="mt-1.5 text-xs text-[#414943] leading-relaxed line-clamp-2">
+                          {oneLiner}
+                        </p>
+                      </div>
+
+                      {/* 4 Clean Parameter Badges: Slope, Min Temp, Aridity, Sulfur ppm */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                        <span
+                          className="px-2.5 py-1 rounded-lg bg-[#FAF7F2] border border-[#414943]/10 text-xs text-[#414943] flex items-center gap-1.5"
+                          title={`Terrain Slope: ${site.slopeDeg}°`}
+                        >
+                          <Mountain className="w-3.5 h-3.5 text-[#184633] shrink-0" />
+                          <span>Slope: <strong className="font-semibold text-[#1D1B17]">{site.slopeDeg}°</strong></span>
+                        </span>
+
+                        <span
+                          className="px-2.5 py-1 rounded-lg bg-[#FAF7F2] border border-[#414943]/10 text-xs text-[#414943] flex items-center gap-1.5"
+                          title={`Coldest Temperature: ${minTemp}°C`}
+                        >
+                          <Thermometer className="w-3.5 h-3.5 text-[#0284C7] shrink-0" />
+                          <span>Min Temp: <strong className="font-semibold text-[#1D1B17]">{minTemp}°C</strong></span>
+                        </span>
+
+                        <span
+                          className="px-2.5 py-1 rounded-lg bg-[#FAF7F2] border border-[#414943]/10 text-xs text-[#414943] flex items-center gap-1.5"
+                          title={`Aridity Index: ${site.aridityIndex}/100 (${getAridityLabel(site.aridityIndex)})`}
+                        >
+                          <Wind className="w-3.5 h-3.5 text-[#D97706] shrink-0" />
+                          <span>Aridity: <strong className="font-semibold text-[#1D1B17]">{site.aridityIndex}</strong></span>
+                        </span>
+
+                        <span
+                          className="px-2.5 py-1 rounded-lg bg-[#FAF7F2] border border-[#414943]/10 text-xs text-[#414943] flex items-center gap-1.5"
+                          title={`Regolith / Soil Sulfur Concentration: ${sulfurPpm.toLocaleString()} ppm`}
+                        >
+                          <FlaskConical className="w-3.5 h-3.5 text-[#9333EA] shrink-0" />
+                          <span>Sulfur: <strong className="font-semibold text-[#1D1B17]">{sulfurPpm.toLocaleString()} ppm</strong></span>
+                        </span>
+                      </div>
+
+                      {/* Footer: Coordinates & Action Button */}
+                      <div className="pt-2 border-t border-[#414943]/8 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 text-[11px] font-mono text-[#696156]">
+                          <MapPin className="w-3 h-3 text-[#696156]" />
+                          <span>{site.coordinates}</span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleInspectDossier(site.id);
+                          }}
+                          className="px-3.5 py-1.5 rounded-xl bg-[#184633] text-white text-xs font-semibold hover:bg-[#2A5A44] transition-all flex items-center gap-1.5 shadow-xs cursor-pointer ml-auto group/btn"
+                        >
+                          <span>View Site Dossier</span>
+                          <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-0.5 transition-transform" />
+                        </button>
                       </div>
                     </div>
-
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold bg-[#EAF4EE] text-[#0F422E] border border-[#2A5A44]/20 shrink-0">
-                      <Sparkles className="w-3.5 h-3.5 text-[#0F422E]" />
-                      <span>{matchScore}% Match</span>
-                    </div>
-                  </div>
-
-                  {/* Simple 1-sentence summary */}
-                  <p className="mt-2.5 text-xs text-[#414943] leading-relaxed">
-                    {oneLiner}
-                  </p>
-
-                  {/* Dataset Citation for Novel Sites */}
-                  {!site.isCatalogKnown && (
-                    <div className="mt-2 text-[11px] font-mono text-[#A33E11] bg-[#FDF2EC] px-3 py-1.5 rounded-xl border border-[#F87171]/30 flex flex-wrap items-center justify-between gap-1.5">
-                      <span>Citation: <strong>{site.catalogCitation || 'NASA Earthdata / Landsat OLI-2 / Sentinel-2 MSI'}</strong></span>
-                      <span className="text-[10px] font-bold uppercase tracking-wider bg-white/80 px-2 py-0.5 rounded-md border border-[#F87171]/20">Zero Documented NASA Usage</span>
-                    </div>
-                  )}
-
-                  {/* 3 Clean mini-pills & Action Button */}
-                  <div className="mt-3.5 pt-3 border-t border-[#414943]/8 flex flex-wrap items-center justify-between gap-2.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="px-2.5 py-1 rounded-lg bg-[#FAF7F2] border border-[#414943]/10 text-xs text-[#414943] flex items-center gap-1.5">
-                        <Mountain className="w-3.5 h-3.5 text-[#184633]" />
-                        <span>Slope ({site.slopeDeg}°)</span>
-                      </span>
-
-                      <span className="px-2.5 py-1 rounded-lg bg-[#FAF7F2] border border-[#414943]/10 text-xs text-[#414943] flex items-center gap-1.5">
-                        <Thermometer className="w-3.5 h-3.5 text-[#0284C7]" />
-                        <span>Min Temp ({minTemp}°C)</span>
-                      </span>
-
-                      <span className="px-2.5 py-1 rounded-lg bg-[#FAF7F2] border border-[#414943]/10 text-xs text-[#414943] flex items-center gap-1.5">
-                        <Wind className="w-3.5 h-3.5 text-[#D97706]" />
-                        <span>Aridity ({getAridityLabel(site.aridityIndex)})</span>
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleInspectDossier(site.id);
-                      }}
-                      className="px-3.5 py-1.5 rounded-xl bg-[#184633] text-white text-xs font-semibold hover:bg-[#2A5A44] transition-all flex items-center gap-1 shadow-xs cursor-pointer ml-auto"
-                    >
-                      <span>View Site Dossier</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
                   </div>
                 </div>
               );
@@ -681,18 +905,33 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
                   Interactive 3D Earth Globe
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => setAutoRotate((r) => !r)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
-                  autoRotate
-                    ? 'bg-[#184633] text-white font-semibold'
-                    : 'bg-[#FAF7F2] text-[#696156] hover:bg-[#F3EDE5]'
-                }`}
-              >
-                <RotateCw className="w-3 h-3" />
-                <span>{autoRotate ? 'Rotating' : 'Rotate'}</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowOverlay((v) => !v)}
+                  title="Toggle Elevation / Slope Spectral Overlay"
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+                    showOverlay
+                      ? 'bg-[#EAF4EE] text-[#0F422E] font-semibold border border-[#BAEED1]'
+                      : 'bg-[#FAF7F2] text-[#696156] hover:bg-[#F3EDE5] border border-[#414943]/10'
+                  }`}
+                >
+                  <Layers className="w-3 h-3" />
+                  <span>Overlay: {showOverlay ? 'On' : 'Off'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAutoRotate((r) => !r)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+                    autoRotate
+                      ? 'bg-[#184633] text-white font-semibold'
+                      : 'bg-[#FAF7F2] text-[#696156] hover:bg-[#F3EDE5]'
+                  }`}
+                >
+                  <RotateCw className="w-3 h-3" />
+                  <span>{autoRotate ? 'Rotating' : 'Rotate'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Interactive 3D Globe */}
@@ -700,6 +939,8 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
               <PlanetaryGlobe3D
                 body="earth"
                 layerId="srtm_slope"
+                showOverlay={showOverlay}
+                onToggleOverlay={setShowOverlay}
                 onlyActiveLabel={true}
                 pins={filteredCandidates.map((cand) => {
                   const isCandSelected = cand.site.id === currentSite.id;
@@ -717,7 +958,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
                 })}
                 onPinClick={(pinId) => onSelectSite(pinId)}
                 autoRotate={autoRotate}
-                layerOpacity={0.9}
+                layerOpacity={0.85}
                 focusLat={currentSite.lat}
                 focusLon={currentSite.lon}
                 cameraMode="orbit"
@@ -727,21 +968,39 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
 
             {/* Simple Comparison Summary Card: Target Lunar Site vs Selected Earth Site */}
             <div className="p-4 rounded-xl bg-[#FAF7F2] border border-[#414943]/10 space-y-3">
-              <div className="flex items-start justify-between gap-2 border-b border-[#414943]/8 pb-2">
-                <div>
-                  <div className="flex items-center gap-1.5 text-xs text-[#696156]">
-                    <span>{getCountryFlag(currentSite)}</span>
-                    <span>{currentSite.country}</span>
-                    <span>·</span>
-                    <span className="font-mono">{currentSite.coordinates}</span>
-                  </div>
-                  <h4 className="font-display font-bold text-base text-[#1D1B17] mt-0.5">
-                    {currentSite.name}
-                  </h4>
+              <div className="flex items-start gap-3 border-b border-[#414943]/8 pb-3">
+                <div className="w-16 h-16 rounded-xl overflow-hidden bg-white shrink-0 border border-[#414943]/12 relative shadow-xs">
+                  {!imageErrors[currentSite.id] && currentSite.imageUrl ? (
+                    <img
+                      src={currentSite.imageUrl}
+                      alt={currentSite.name}
+                      onError={() => handleImageError(currentSite.id)}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-xl bg-gradient-to-br from-emerald-900 to-slate-800 text-white">
+                      {SITE_BIOME_ICONS[currentSite.id] || '🌍'}
+                    </div>
+                  )}
                 </div>
 
-                <div className="px-2.5 py-1 rounded-full bg-[#EAF4EE] border border-[#2A5A44]/20 text-xs font-mono font-bold text-[#0F422E]">
-                  {currentScore}% Match
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5 text-xs text-[#696156] truncate">
+                      <span>{getCountryFlag(currentSite)}</span>
+                      <span className="truncate">{currentSite.country} · {currentSite.region}</span>
+                    </div>
+                    <div className="px-2 py-0.5 rounded-full bg-[#EAF4EE] border border-[#2A5A44]/20 text-[11px] font-mono font-bold text-[#0F422E] shrink-0">
+                      {currentScore}% Match
+                    </div>
+                  </div>
+                  <h4 className="font-display font-bold text-sm sm:text-base text-[#1D1B17] mt-0.5 truncate">
+                    {currentSite.name}
+                  </h4>
+                  <div className="text-[10px] font-mono text-[#696156] flex items-center gap-1 mt-0.5">
+                    <MapPin className="w-2.5 h-2.5 text-[#696156]" />
+                    <span>{currentSite.coordinates} · {currentSite.elevationM.toLocaleString()}m</span>
+                  </div>
                 </div>
               </div>
 
@@ -792,6 +1051,13 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
                   <div className="font-mono text-right">
                     <span className="text-[#696156] mr-2">Target: {activeTarget.minTempC}°C</span>
                     <span className="text-[#184633] font-bold">Earth: {Math.min(...currentSite.monthlyMinTempC)}°C</span>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-white border border-[#414943]/8 flex items-center justify-between">
+                  <span className="text-[#696156]">Sulfur Concentration:</span>
+                  <div className="font-mono text-right">
+                    <span className="text-[#9333EA] font-bold">{getSiteSulfurPpm(currentSite).toLocaleString()} ppm</span>
                   </div>
                 </div>
               </div>

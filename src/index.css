@@ -87,6 +87,16 @@
   background: rgba(42, 90, 68, 0.45);
 }
 
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
 /* Tactile Terra Calm range sliders */
 input[type="range"].terra-slider {
   -webkit-appearance: none;

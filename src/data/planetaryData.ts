@@ -1,4 +1,8 @@
-import { EXTENDED_EARTH_CANDIDATE_SITES } from './candidateSites';
+import {
+  EXTENDED_EARTH_CANDIDATE_SITES,
+  getSiteSulfurPpm,
+  getSiteSulfurSource,
+} from './candidateSites';
 import {
   AnalogyBreakdownItem,
   CadPartSpec,
@@ -772,6 +776,7 @@ export const OBJECTIVE_PROFILES: ObjectiveProfile[] = [
 ];
 
 export const EARTH_CANDIDATE_SITES: EarthCandidateSite[] = EXTENDED_EARTH_CANDIDATE_SITES;
+export { getSiteSulfurPpm, getSiteSulfurSource };
 
 export const MANDATORY_BREAKDOWN_ITEMS: Record<
   'moon' | 'mars',

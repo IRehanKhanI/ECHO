@@ -2,12 +2,13 @@ import React, { useMemo, useState } from 'react';
 import {
   ArrowRight,
   Compass,
+  Crosshair,
+  Layers,
   MapPin,
+  Mountain,
   RotateCw,
   Sun,
-  Mountain,
   Thermometer,
-  Crosshair,
 } from 'lucide-react';
 import {
   PLANETARY_TARGETS,
@@ -113,6 +114,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   const [stageMode, setStageMode] = useState<'orbit' | 'top' | 'relief'>('orbit');
   const [autoRotate, setAutoRotate] = useState(false);
   const [showPins, setShowPins] = useState(true);
+  const [showOverlay, setShowOverlay] = useState(false);
 
   // 4 Prominent Artemis IV Location Pointers on the 3D Moon
   const globePins: GlobePin[] = useMemo(() => {
@@ -158,13 +160,33 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         {/* Left Column: Sleek Mission Hero Card */}
         <div className="lg:col-span-5 flex flex-col justify-between bg-[#FFFFFF] rounded-3xl border border-[#414943]/10 shadow-soft-card p-6 sm:p-7 space-y-5">
           {/* Header & Badges */}
-          <div className="space-y-2.5">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#184633] text-[#FFFFFF] text-xs font-bold tracking-tight shadow-xs">
-                <Compass className="w-3.5 h-3.5 text-[#BAEED1]" />
-                Step 1: Mission Brief
-              </span>
-
+          <div className="space-y-3">
+            {/* Project Brand Header Emblem */}
+            <div className="flex items-center justify-between gap-3 p-3 bg-[#FAF7F2] rounded-2xl border border-[#414943]/10">
+              <div className="flex items-center gap-3 min-w-0">
+                <img
+                  src="/icons.jpg"
+                  alt="ECHO Mission Emblem"
+                  className="h-12 w-auto object-contain rounded-xl border border-[#414943]/15 shadow-xs shrink-0 bg-white"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLElement).style.display = 'none';
+                  }}
+                />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#184633] text-[#FFFFFF] text-[11px] font-bold tracking-tight shadow-xs">
+                      <Compass className="w-3 h-3 text-[#BAEED1]" />
+                      Step 1: Mission Brief
+                    </span>
+                    <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#EAF4EE] text-[#0F422E] font-bold">
+                      Artemis IV
+                    </span>
+                  </div>
+                  <div className="text-[11px] font-mono text-[#696156] mt-0.5 truncate">
+                    Earth Correlation &amp; Habitat Observation
+                  </div>
+                </div>
+              </div>
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-[#1D1B17] tracking-tight leading-tight">
@@ -383,6 +405,21 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 <span>Pins</span>
               </button>
 
+              {/* Spectral Overlay Toggle (Defaults to OFF) */}
+              <button
+                type="button"
+                onClick={() => setShowOverlay((v) => !v)}
+                title="Toggle False-Color Elevation / Thermal Spectral Overlay"
+                className={`px-3 py-1 rounded-full border text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  showOverlay
+                    ? 'bg-[#EAF4EE] text-[#0F422E] border-[#BAEED1]'
+                    : 'bg-[#FAF7F2] text-[#696156] border-[#414943]/10 hover:text-[#1D1B17]'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Spectral Overlay: {showOverlay ? 'On' : 'Off'}</span>
+              </button>
+
               {/* Auto Rotate Toggle */}
               <button
                 type="button"
@@ -404,6 +441,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             <PlanetaryGlobe3D
               body="moon"
               activeLayerId={activeLayerId}
+              showOverlay={showOverlay}
+              onToggleOverlay={setShowOverlay}
               pins={globePins}
               onPinClick={handleSelectTarget}
               autoRotate={autoRotate}

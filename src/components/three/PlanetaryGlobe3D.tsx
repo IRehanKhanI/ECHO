@@ -22,11 +22,15 @@ export interface PlanetaryGlobe3DProps {
   layerId?: ScientificLayerId | string;
   activeLayerId?: ScientificLayerId | string;
   layerOpacity?: number;
+  showOverlay?: boolean;
+  onToggleOverlay?: (show: boolean) => void;
+  showOverlayToggle?: boolean;
   cameraMode?: GlobeCameraMode;
   focusLat?: number;
   focusLon?: number;
   pins: GlobePin[];
   onPinClick?: (pinId: string) => void;
+  onGlobeClick?: (coords: { lat: number; lon: number }) => void;
   autoRotate?: boolean;
   themeSurface?: 'studio-light' | 'orbital-dark';
   className?: string;
@@ -393,11 +397,15 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
   layerId,
   activeLayerId,
   layerOpacity = 0.85,
+  showOverlay = false,
+  onToggleOverlay,
+  showOverlayToggle = true,
   cameraMode = 'orbit',
   focusLat = -85,
   focusLon = 0,
   pins,
   onPinClick,
+  onGlobeClick,
   autoRotate = false,
   themeSurface = 'studio-light',
   className = '',
@@ -408,6 +416,21 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
   const [projectedPins, setProjectedPins] = useState<ProjectedPin[]>([]);
   const [webglError, setWebglError] = useState(false);
   const [hoveredPinId, setHoveredPinId] = useState<string | null>(null);
+  const [internalShowOverlay, setInternalShowOverlay] = useState<boolean>(showOverlay);
+
+  useEffect(() => {
+    setInternalShowOverlay(showOverlay);
+  }, [showOverlay]);
+
+  const effectiveShowOverlay = onToggleOverlay ? showOverlay : internalShowOverlay;
+  const showOverlayRef = useRef<boolean>(effectiveShowOverlay);
+  showOverlayRef.current = effectiveShowOverlay;
+
+  const handleToggleOverlay = () => {
+    const nextVal = !effectiveShowOverlay;
+    setInternalShowOverlay(nextVal);
+    onToggleOverlay?.(nextVal);
+  };
 
   const pinsRef = useRef<GlobePin[]>(pins);
   pinsRef.current = pins;
@@ -545,10 +568,17 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
     targetBody: PlanetBody,
     targetLayer: string,
     opacity: number,
+    visible: boolean,
   ) => {
     const state = sceneRefs.current;
     const sciMesh = state.scientificMesh;
     if (!sciMesh) return;
+
+    if (!visible) {
+      sciMesh.visible = false;
+      state.requestRender?.();
+      return;
+    }
 
     const sciTex = getScientificTexture(targetBody, targetLayer);
     const mat = sciMesh.material as THREE.MeshStandardMaterial;
@@ -690,8 +720,8 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
 
   // Prop updates: scientific overlay change
   useEffect(() => {
-    updateScientificOverlay(body, effectiveLayer, layerOpacity);
-  }, [body, effectiveLayer, layerOpacity]);
+    updateScientificOverlay(body, effectiveLayer, layerOpacity, effectiveShowOverlay);
+  }, [body, effectiveLayer, layerOpacity, effectiveShowOverlay]);
 
   // Prop updates: pins change
   useEffect(() => {
@@ -805,7 +835,7 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
       blending: THREE.NormalBlending,
     });
     const scientificMesh = new THREE.Mesh(sciGeo, sciMat);
-    scientificMesh.visible = layerOpacity > 0.05;
+    scientificMesh.visible = showOverlayRef.current && layerOpacity > 0.05;
     scene.add(scientificMesh);
 
     // 3. Earth Atmospheric Cloud Mesh (radius 1.012)
@@ -903,7 +933,7 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
 
     // Initialize materials, overlay & pins immediately on scene creation
     updatePlanetMaterials(body);
-    updateScientificOverlay(body, effectiveLayer, layerOpacity);
+    updateScientificOverlay(body, effectiveLayer, layerOpacity, showOverlayRef.current);
     updatePins(pinsRef.current);
 
     let frameId = 0;
@@ -1123,14 +1153,32 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
       _mouse.set(c.x, c.y);
       _raycaster.setFromCamera(_mouse, state.camera);
 
-      const hits = _raycaster.intersectObjects(state.pinsGroup.children, true);
-      if (hits.length > 0) {
-        let obj: THREE.Object3D | null = hits[0].object;
-        while (obj && !obj.userData?.pinId && obj.parent) {
-          obj = obj.parent;
+      let pinClicked = false;
+      if (showPinsRef.current) {
+        const hits = _raycaster.intersectObjects(state.pinsGroup.children, true);
+        if (hits.length > 0) {
+          let obj: THREE.Object3D | null = hits[0].object;
+          while (obj && !obj.userData?.pinId && obj.parent) {
+            obj = obj.parent;
+          }
+          if (obj?.userData?.pinId) {
+            pinClicked = true;
+            onPinClick?.(obj.userData.pinId);
+          }
         }
-        if (obj?.userData?.pinId) {
-          onPinClick?.(obj.userData.pinId);
+      }
+
+      if (!pinClicked && onGlobeClick && state.globeMesh) {
+        const sphereHits = _raycaster.intersectObject(state.globeMesh, false);
+        if (sphereHits.length > 0 && sphereHits[0].point) {
+          const pt = sphereHits[0].point.clone().normalize();
+          const phi = Math.acos(Math.max(-1, Math.min(1, pt.y)));
+          const lat = 90 - phi * (180 / Math.PI);
+          const theta = Math.atan2(pt.z, -pt.x);
+          let lon = theta * (180 / Math.PI) - 180;
+          while (lon < -180) lon += 360;
+          while (lon > 180) lon -= 360;
+          onGlobeClick({ lat: parseFloat(lat.toFixed(2)), lon: parseFloat(lon.toFixed(2)) });
         }
       }
     };
@@ -1161,7 +1209,7 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
       mount.removeEventListener('pointerup', handlePointerUp);
       mount.removeEventListener('pointermove', handlePointerMove);
     };
-  }, [onPinClick]);
+  }, [onPinClick, onGlobeClick]);
 
   if (webglError) {
     return (
@@ -1183,6 +1231,42 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
   return (
     <div className={`relative w-full h-full overflow-hidden ${className}`}>
       <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
+
+      {/* In-canvas Spectral Layer Overlay Toggle Button */}
+      {showOverlayToggle && (
+        <div className="absolute top-3 left-3 z-10 pointer-events-auto">
+          <button
+            type="button"
+            onClick={handleToggleOverlay}
+            title={
+              effectiveShowOverlay
+                ? `Spectral Overlay Active (${effectiveLayer.toUpperCase()}) - Click to switch to authentic photographic surface`
+                : 'Click to enable false-color elevation / thermal spectral overlay'
+            }
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-md border backdrop-blur-md transition-all cursor-pointer ${
+              effectiveShowOverlay
+                ? 'bg-[#184633] text-white border-[#184633] ring-2 ring-[#34D399]/40 shadow-[0_0_12px_rgba(24,70,51,0.4)]'
+                : themeSurface === 'orbital-dark'
+                  ? 'bg-[#0B132B]/85 text-[#94A3B8] border-white/15 hover:text-white hover:bg-[#1E293B]'
+                  : 'bg-[#FAF7F2]/90 text-[#414943] border-[#414943]/15 hover:text-[#1D1B17] hover:bg-white shadow-xs'
+            }`}
+          >
+            <span className="text-sm leading-none">🛰️</span>
+            <span>Spectral Overlay:</span>
+            <span
+              className={`font-mono font-bold text-[11px] px-1.5 py-0.5 rounded-full ${
+                effectiveShowOverlay
+                  ? 'bg-[#34D399]/20 text-[#34D399]'
+                  : themeSurface === 'orbital-dark'
+                    ? 'bg-white/10 text-white/70'
+                    : 'bg-[#414943]/10 text-[#696156]'
+              }`}
+            >
+              {effectiveShowOverlay ? 'On' : 'Off'}
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* Projected 3D Spatial Pin Labels (anchored above the 3D pin meshes) */}
       {showPins && (

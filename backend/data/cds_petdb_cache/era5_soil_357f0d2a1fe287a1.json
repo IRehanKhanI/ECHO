@@ -1,0 +1,13 @@
+{
+  "dataset": "reanalysis-era5-land-timeseries",
+  "variable": "soil_temperature_level_1",
+  "lat": -25.4,
+  "lng": -68.7,
+  "date_range": "1950-01-02/2026-11-08",
+  "data_format": "netcdf",
+  "era5_soil_temp_c": -6.4,
+  "kelvin": 266.75,
+  "file_path": null,
+  "provenance": "Copernicus Climate Data Store ERA5-Land Reanalysis (Physics Baseline)",
+  "retrieval_status": "CDS_OFFLINE_CACHE"
+}

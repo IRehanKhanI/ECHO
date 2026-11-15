@@ -140,6 +140,12 @@ export interface PlanetaryTarget {
   crossSectionElevationsM: number[]; // 12 points across 10km transect
 }
 
+export interface SiteChemistry {
+  sulfurConcentrationPpm: number;
+  dataSource?: string;
+  dominantMinerals?: string;
+}
+
 export interface EarthCandidateSite {
   id: string;
   name: string;
@@ -152,6 +158,7 @@ export interface EarthCandidateSite {
   biomeCharacter: string;
   isCatalogKnown: boolean;
   catalogCitation?: string;
+  imageUrl?: string;
   // Static geomorphic properties (Copernicus DEM / SRTM / CSA RCM)
   slopeDeg: number;
   rmsRoughnessM: number;
@@ -179,6 +186,7 @@ export interface EarthCandidateSite {
   operationalLogistics?: string;
   distinctScores?: SiteDistinctScores;
   adminFeasibility?: AdminFeasibilityDetail;
+  chemistry?: SiteChemistry;
 }
 
 export type DimensionWeights = Record<DimensionKey, number>;

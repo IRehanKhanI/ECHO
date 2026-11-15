@@ -252,6 +252,8 @@ export default function App() {
             activeTarget={activeTarget}
             activeObjective={activeObjective}
             onNavigate={setActiveView}
+            rankedCandidates={rankedCandidates}
+            onSelectSite={setSelectedSiteId}
           />
         )}
 
@@ -281,6 +283,14 @@ export default function App() {
       <footer className="no-print max-w-[1640px] w-full mx-auto px-4 sm:px-6 pb-6 shrink-0">
         <div className="bg-[#FFFFFF] rounded-full border border-[#414943]/8 shadow-soft-card px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-[#696156]">
           <div className="flex items-center gap-2.5 truncate">
+            <img
+              src="/icons.jpg"
+              alt="ECHO"
+              className="h-5 w-auto object-contain rounded shrink-0 border border-[#414943]/15"
+              onError={(e) => {
+                (e.currentTarget as HTMLElement).style.display = 'none';
+              }}
+            />
             <span className="font-display font-bold text-[#1D1B17]">
               ECHO
             </span>
