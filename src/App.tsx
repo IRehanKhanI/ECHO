@@ -29,7 +29,30 @@ import {
   ScientificLayerId,
   EarthAnalogResult,
   WorkspaceView,
+  ScoredCandidate,
 } from './types/terra';
+
+function deriveAnalogResultsFromCandidates(candidates: ScoredCandidate[]): EarthAnalogResult[] {
+  return candidates.map((c, idx) => ({
+    id: idx + 1,
+    location_name: c.site.name,
+    country: c.site.country,
+    lat: c.site.lat,
+    lng: c.site.lon,
+    min_temp_c: Math.min(...c.site.monthlyMinTempC),
+    slope_deg: c.site.slopeDeg,
+    cosine_distance: parseFloat(Math.max(0, 1 - (c.bestMonthScore / 100)).toFixed(4)),
+  }));
+}
+
+const PRIMARY_WORKFLOW_STEPS: WorkspaceView[] = [
+  'overview',
+  'discovery',
+  'dossier',
+  'permits',
+  'lab',
+  'reports',
+];
 
 export default function App() {
   const [activeView, setActiveView] = useState<WorkspaceView>('overview');
@@ -48,7 +71,7 @@ export default function App() {
   const [noveltyOnly, setNoveltyOnly] = useState<boolean>(false);
   const [thresholdPct, setThresholdPct] = useState<number>(75);
   const [selectedSiteId, setSelectedSiteId] = useState<string>('univ_valley');
-  const [analogResults, setAnalogResults] = useState<EarthAnalogResult[] | null>(null);
+  const [customAnalogResults, setCustomAnalogResults] = useState<EarthAnalogResult[] | null>(null);
 
   const activeTarget = useMemo(
     () =>
@@ -77,6 +100,20 @@ export default function App() {
     [activeTarget, weights, noveltyOnly, thresholdPct, seasonalTempBiasK],
   );
 
+  // Synchronously derived default results - guarantees ZERO empty or 'Awaiting data' states on initial load!
+  const defaultAnalogResults = useMemo(
+    () => deriveAnalogResultsFromCandidates(rankedCandidates),
+    [rankedCandidates],
+  );
+
+  // Effective analogResults is NEVER null and NEVER empty on startup:
+  const analogResults: EarthAnalogResult[] = useMemo(() => {
+    if (customAnalogResults && customAnalogResults.length > 0) {
+      return customAnalogResults;
+    }
+    return defaultAnalogResults;
+  }, [customAnalogResults, defaultAnalogResults]);
+
   useEffect(() => {
     const exists = rankedCandidates.some((c) => c.site.id === selectedSiteId);
     if (!exists && rankedCandidates.length > 0) {
@@ -91,6 +128,25 @@ export default function App() {
       EARTH_CANDIDATE_SITES[0],
     [selectedSiteId, rankedCandidates],
   );
+
+  const currentStepIndex = PRIMARY_WORKFLOW_STEPS.indexOf(activeView);
+
+  const handleNextStep = () => {
+    if (currentStepIndex >= 0 && currentStepIndex < PRIMARY_WORKFLOW_STEPS.length - 1) {
+      setActiveView(PRIMARY_WORKFLOW_STEPS[currentStepIndex + 1]);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (activeView === 'calendar' || activeView === 'cad') {
+      setActiveView('reports');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handlePrevStep = () => {
+    if (currentStepIndex > 0) {
+      setActiveView(PRIMARY_WORKFLOW_STEPS[currentStepIndex - 1]);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const handleChangeBody = (body: PlanetBody) => {
     setActiveBody(body);
@@ -137,6 +193,8 @@ export default function App() {
         activeBody={activeBody}
         onChangeBody={handleChangeBody}
         onQuickExport={() => setActiveView('reports')}
+        onNextStep={handleNextStep}
+        onPrevStep={handlePrevStep}
       />
 
       <TelemetryStrip
@@ -146,6 +204,7 @@ export default function App() {
         noveltyOnly={noveltyOnly}
         activeView={activeView}
         analogResults={analogResults}
+        onNextStep={handleNextStep}
       />
 
       <main className="max-w-[1640px] w-full mx-auto px-4 sm:px-6 pb-8 flex-1">
@@ -165,8 +224,9 @@ export default function App() {
             selectedSite={selectedSite}
             onSelectSite={setSelectedSiteId}
             setActiveTab={setActiveView}
-            setAnalogResults={setAnalogResults}
+            setAnalogResults={setCustomAnalogResults}
             onOpenReport={() => setActiveView('reports')}
+            onNextStep={handleNextStep}
           />
         )}
 
@@ -189,6 +249,7 @@ export default function App() {
             onOpenCalendar={() => setActiveView('calendar')}
             analogResults={analogResults}
             onOpenDossier={() => setActiveView('dossier')}
+            onNavigate={setActiveView}
           />
         )}
 
