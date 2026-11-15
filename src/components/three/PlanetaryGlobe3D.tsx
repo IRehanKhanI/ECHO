@@ -31,6 +31,7 @@ export interface PlanetaryGlobe3DProps {
   themeSurface?: 'studio-light' | 'orbital-dark';
   className?: string;
   showPins?: boolean;
+  onlyActiveLabel?: boolean;
 }
 
 interface ProjectedPin extends GlobePin {
@@ -363,9 +364,9 @@ function createPinRingGeometry(): THREE.BufferGeometry {
 }
 
 function createActiveRingGeometry(): THREE.BufferGeometry {
-  const geo = new THREE.RingGeometry(0.013, 0.022, 32);
+  const geo = new THREE.RingGeometry(0.012, 0.03, 36);
   geo.rotateX(-Math.PI / 2);
-  geo.translate(0, 0.001, 0);
+  geo.translate(0, 0.0015, 0);
   return geo;
 }
 
@@ -401,10 +402,12 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
   themeSurface = 'studio-light',
   className = '',
   showPins = true,
+  onlyActiveLabel = false,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [projectedPins, setProjectedPins] = useState<ProjectedPin[]>([]);
   const [webglError, setWebglError] = useState(false);
+  const [hoveredPinId, setHoveredPinId] = useState<string | null>(null);
 
   const pinsRef = useRef<GlobePin[]>(pins);
   pinsRef.current = pins;
@@ -613,10 +616,10 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
 
       if (pin.active) {
         const activeMat = new THREE.MeshBasicMaterial({
-          color: new THREE.Color('#2563EB'),
+          color: new THREE.Color('#3B82F6'),
           side: THREE.DoubleSide,
           transparent: true,
-          opacity: 0.65,
+          opacity: 0.85,
         });
         const activeMesh = new THREE.Mesh(geos.activeRing, activeMat);
         activeMesh.userData = { pinId: pin.id };
@@ -632,11 +635,28 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
   // Update desired camera vector on mode/focus changes
   useEffect(() => {
     const state = sceneRefs.current;
-    const dist = cameraMode === 'polar' ? 3.15 : cameraMode === 'relief' ? 2.65 : 3.05;
-    const lat = cameraMode === 'polar' ? (body === 'moon' ? -88 : focusLat) : focusLat;
-    latLonToVec3(lat, focusLon, dist, _targetCamPos);
+    const dist = cameraMode === 'polar' ? 3.15 : cameraMode === 'relief' ? 2.65 : 2.95;
+
+    let targetLat = focusLat;
+    let targetLon = focusLon;
+
+    if (body === 'moon') {
+      // For lunar south polar candidates (lat < -75), angle camera obliquely at -68° facing targetLon
+      // so the globe camera dynamically rotates and focuses on that target's latitude and longitude,
+      // avoiding collinear gimbal lock while giving a clear 3D perspective of the massifs and pins.
+      if (cameraMode === 'polar') {
+        targetLat = -86;
+      } else {
+        targetLat = Math.min(-62, Math.max(-72, focusLat * 0.76 - 2));
+      }
+      targetLon = focusLon;
+    } else if (cameraMode === 'polar') {
+      targetLat = -88;
+    }
+
+    latLonToVec3(targetLat, targetLon, dist, _targetCamPos);
     if (cameraMode === 'relief') {
-      _targetCamPos.y += 0.65;
+      _targetCamPos.y += 0.35;
       _targetCamPos.normalize().multiplyScalar(dist);
     }
     state.desiredCamPos.copy(_targetCamPos);
@@ -740,7 +760,9 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
     pmrem.dispose();
 
     const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 50);
-    latLonToVec3(focusLat, focusLon, 3.05, camera.position);
+    const initialLat =
+      body === 'moon' ? Math.min(-62, Math.max(-72, focusLat * 0.76 - 2)) : focusLat;
+    latLonToVec3(initialLat, focusLon, 2.95, camera.position);
     camera.lookAt(0, 0, 0);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -1165,49 +1187,97 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
       {/* Projected 3D Spatial Pin Labels (anchored above the 3D pin meshes) */}
       {showPins && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          {projectedPins.map((pin) => {
-            if (!pin.visible) return null;
-            const dotColor =
-              pin.active
-                ? 'bg-[#2563EB]'
-                : pin.accent === 'terracotta'
-                  ? 'bg-[#E06A3B]'
-                  : pin.accent === 'amber'
-                    ? 'bg-[#E69A28]'
-                    : pin.accent === 'slate'
-                      ? 'bg-[#7A7670]'
-                      : 'bg-[#184633]';
+          {projectedPins
+            .filter((p) => p.visible)
+            .sort((a, b) => {
+              const scoreA = a.active ? 2 : hoveredPinId === a.id ? 1 : 0;
+              const scoreB = b.active ? 2 : hoveredPinId === b.id ? 1 : 0;
+              return scoreA - scoreB;
+            })
+            .map((pin) => {
+              const isTargetActive = !!pin.active;
+              const isHovered = hoveredPinId === pin.id;
+              const isExpanded = onlyActiveLabel ? isTargetActive : (isTargetActive || isHovered);
+              const isArtemis =
+                body === 'moon' && (isTargetActive || (pin.sublabel && pin.sublabel.toLowerCase().includes('artemis')));
 
-            return (
-              <button
-                key={pin.id}
-                type="button"
-                onClick={() => onPinClick?.(pin.id)}
-                style={{
-                  transform: `translate3d(${pin.x}px, ${pin.y}px, 0) translate(-50%, -100%)`,
-                }}
-                className={`pointer-events-auto absolute top-0 left-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium shadow-md border transition-all whitespace-nowrap ${
-                  pin.active
-                    ? 'bg-[#1D1B17] text-[#FAF8F5] border-[#2563EB] ring-2 ring-[#2563EB]/40'
-                    : 'bg-[#FFFFFF] text-[#1D1B17] border-[#7A7670]/25 hover:border-[#2563EB]'
-                }`}
-              >
-                <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
-                <span>{pin.label}</span>
-                {pin.scoreBadge && (
-                  <span
-                    className={`font-mono text-[11px] px-1.5 py-0.2 rounded-full ${
-                      pin.active
-                        ? 'bg-[#2563EB] text-white'
-                        : 'bg-[#2A5A44]/10 text-[#0F422E]'
+              const dotColor =
+                isTargetActive
+                  ? 'bg-[#3B82F6]'
+                  : pin.accent === 'terracotta'
+                    ? 'bg-[#E06A3B]'
+                    : pin.accent === 'amber'
+                      ? 'bg-[#E69A28]'
+                      : pin.accent === 'slate'
+                        ? 'bg-[#7A7670]'
+                        : 'bg-[#184633]';
+
+              if (isExpanded) {
+                return (
+                  <button
+                    key={pin.id}
+                    type="button"
+                    onClick={() => onPinClick?.(pin.id)}
+                    onMouseEnter={() => setHoveredPinId(pin.id)}
+                    onMouseLeave={() => setHoveredPinId(null)}
+                    style={{
+                      transform: `translate3d(${pin.x}px, ${pin.y}px, 0) translate(-50%, -100%)`,
+                    }}
+                    className={`pointer-events-auto absolute top-0 left-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-xl border transition-all whitespace-nowrap cursor-pointer ${
+                      isTargetActive
+                        ? 'bg-[#0F172A] text-[#FAF8F5] border-[#3B82F6] ring-2 ring-[#60A5FA]/60 shadow-[0_0_20px_rgba(59,130,246,0.55)] scale-105 z-30'
+                        : 'bg-[#1E293B] text-[#FAF8F5] border-[#3B82F6]/60 shadow-lg scale-105 z-20'
                     }`}
                   >
-                    {pin.scoreBadge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                        isTargetActive
+                          ? 'bg-[#3B82F6] animate-pulse ring-2 ring-white/70'
+                          : `${dotColor} ring-1 ring-white/60`
+                      }`}
+                    />
+                    <span className="font-bold">{pin.label}</span>
+                    {isArtemis && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-[#2563EB] text-white text-[10px] font-extrabold uppercase tracking-wider">
+                        ARTEMIS IV
+                      </span>
+                    )}
+                    {pin.scoreBadge && (
+                      <span
+                        className={`font-mono text-[11px] px-1.5 py-0.5 rounded-full font-semibold ${
+                          isTargetActive
+                            ? 'bg-[#1E293B] text-[#93C5FD] border border-[#3B82F6]/40'
+                            : 'bg-[#0F172A] text-[#93C5FD] border border-[#3B82F6]/30'
+                        }`}
+                      >
+                        {pin.scoreBadge}
+                      </span>
+                    )}
+                  </button>
+                );
+              }
+
+              // Sleek, compact glowing circular dot beacon for non-active pins (zero duplicate background box or label overlap!)
+              return (
+                <button
+                  key={pin.id}
+                  type="button"
+                  onClick={() => onPinClick?.(pin.id)}
+                  onMouseEnter={() => setHoveredPinId(pin.id)}
+                  onMouseLeave={() => setHoveredPinId(null)}
+                  style={{
+                    transform: `translate3d(${pin.x}px, ${pin.y}px, 0) translate(-50%, -50%)`,
+                  }}
+                  aria-label={pin.label}
+                  title={`${pin.label}${pin.scoreBadge ? ` · ${pin.scoreBadge}` : ''} (Click to select)`}
+                  className="pointer-events-auto absolute top-0 left-0 z-10 transition-transform duration-150 hover:scale-140 focus:outline-none cursor-pointer p-0.5"
+                >
+                  <div className="relative flex items-center justify-center">
+                    <span className={`w-2.5 h-2.5 rounded-full ${dotColor} border border-white/90 shadow-xs`} />
+                  </div>
+                </button>
+              );
+            })}
         </div>
       )}
     </div>

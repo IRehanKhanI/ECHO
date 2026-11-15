@@ -5,9 +5,11 @@ import {
   MapPin,
   RotateCw,
   Sun,
+  Mountain,
+  Thermometer,
+  Crosshair,
 } from 'lucide-react';
 import {
-  EARTH_CANDIDATE_SITES,
   PLANETARY_TARGETS,
 } from '../../data/planetaryData';
 import {
@@ -24,7 +26,6 @@ import {
   GlobePin,
   PlanetaryGlobe3D,
 } from '../three/PlanetaryGlobe3D';
-import { LunarSouthPoleTerrain } from '../three/LunarSouthPoleTerrain';
 
 interface OverviewViewProps {
   activeBody: PlanetBody;
@@ -46,24 +47,57 @@ interface OverviewViewProps {
   onNextStep?: () => void;
 }
 
-const LUNAR_PRESETS = [
+export interface ArtemisIVPreset {
+  id: string;
+  name: string;
+  coord: string;
+  lat: number;
+  lon: number;
+  tag: string;
+  badge: string;
+  feature: string;
+}
+
+export const ARTEMIS_IV_TARGETS: ArtemisIVPreset[] = [
   {
     id: 'moon_shackleton_rim',
     name: 'Shackleton Rim Massif',
-    coord: '89.9°S',
-    tag: 'Peak Sunlight',
+    coord: '89.90°S, 0.00°E',
+    lat: -89.9,
+    lon: 0.0,
+    tag: 'Primary Landing Candidate',
+    badge: 'Peak Sunlight',
+    feature: 'High-ridge perimeter bordered by cryogenic volatile traps with persistent grazing sunlight peaks.',
   },
   {
     id: 'moon_malapert_massif',
     name: 'Malapert Massif',
-    coord: '86.0°S',
+    coord: '85.99°S, 2.90°W',
+    lat: -85.99,
+    lon: -2.9,
     tag: 'Earth Line-of-Sight',
+    badge: 'Class A-2 Massif',
+    feature: 'Elevated south polar mountain massif with continuous Earth telemetry line-of-sight and boulder-strewn flanks.',
   },
   {
-    id: 'moon_haworth_psr',
-    name: 'Haworth PSR',
-    coord: '87.5°S',
+    id: 'moon_haworth_crater',
+    name: 'Haworth Crater PSR',
+    coord: '87.40°S, 5.10°W',
+    lat: -87.4,
+    lon: -5.1,
     tag: 'Cold Trap (<40 K)',
+    badge: 'Volatile Ice Basin',
+    feature: 'Deep permanently shadowed cryogenic cold-trap floor recording ultra-low temperatures (<40 K / -246°C) and water ice.',
+  },
+  {
+    id: 'moon_connecting_ridge',
+    name: 'Connecting Ridge',
+    coord: '89.44°S, 137.31°W',
+    lat: -89.44,
+    lon: -137.31,
+    tag: 'Trans-Polar Saddle',
+    badge: 'Low Rover Slope',
+    feature: 'Narrow saddle connecting Shackleton to de Gerlache featuring dual illumination windows and low traversal slopes.',
   },
 ];
 
@@ -73,9 +107,6 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   activeTarget,
   onSelectTarget,
   activeLayerId,
-  rankedCandidates,
-  selectedSite,
-  onSelectSite,
   setActiveTab,
   onNextStep,
 }) => {
@@ -83,29 +114,33 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   const [autoRotate, setAutoRotate] = useState(false);
   const [showPins, setShowPins] = useState(true);
 
+  // 4 Prominent Artemis IV Location Pointers on the 3D Moon
   const globePins: GlobePin[] = useMemo(() => {
     if (!showPins) return [];
-    if (activeBody === 'earth') {
-      return EARTH_CANDIDATE_SITES.map((s) => ({
-        id: s.id,
-        label: s.name.split(' (')[0],
-        lat: s.lat,
-        lon: s.lon,
-        accent: s.id === selectedSite.id ? 'terracotta' : s.isCatalogKnown ? 'moss' : 'amber',
-        active: s.id === selectedSite.id,
-        scoreBadge: `${Math.round(rankedCandidates.find((c) => c.site.id === s.id)?.bestMonthScore || 75)}%`,
-      }));
+    return ARTEMIS_IV_TARGETS.map((target) => {
+      const pdsTarget = PLANETARY_TARGETS.find((p) => p.id === target.id);
+      const isSelected = activeTarget.id === target.id;
+      return {
+        id: target.id,
+        label: target.name,
+        sublabel: 'Artemis IV Candidate',
+        lat: target.lat,
+        lon: target.lon,
+        accent: isSelected ? 'terracotta' : 'moss',
+        active: isSelected,
+        scoreBadge: pdsTarget
+          ? `${pdsTarget.elevationM >= 0 ? '+' : ''}${pdsTarget.elevationM.toLocaleString()}m`
+          : undefined,
+      };
+    });
+  }, [activeTarget.id, showPins]);
+
+  const handleSelectTarget = (targetId: string) => {
+    if (activeBody !== 'moon') {
+      onChangeBody('moon');
     }
-    return PLANETARY_TARGETS.filter((t) => t.body === activeBody).map((t) => ({
-      id: t.id,
-      label: t.name,
-      lat: t.lat,
-      lon: t.lon,
-      accent: t.body === 'moon' ? 'moss' : 'terracotta',
-      active: t.id === activeTarget.id,
-      scoreBadge: `${t.elevationM >= 0 ? '+' : ''}${t.elevationM.toLocaleString()}m`,
-    }));
-  }, [activeBody, activeTarget.id, selectedSite.id, rankedCandidates, showPins]);
+    onSelectTarget(targetId);
+  };
 
   const handleStartDiscovery = () => {
     if (onNextStep) {
@@ -121,62 +156,78 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       {/* 2-Column Spacious Hero & 3D Stage Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         {/* Left Column: Sleek Mission Hero Card */}
-        <div className="lg:col-span-5 flex flex-col justify-between bg-[#FFFFFF] rounded-3xl border border-[#414943]/10 shadow-soft-card p-6 sm:p-8 space-y-6">
+        <div className="lg:col-span-5 flex flex-col justify-between bg-[#FFFFFF] rounded-3xl border border-[#414943]/10 shadow-soft-card p-6 sm:p-7 space-y-5">
           {/* Header & Badges */}
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#184633] text-[#FFFFFF] text-xs font-bold tracking-tight shadow-xs">
                 <Compass className="w-3.5 h-3.5 text-[#BAEED1]" />
                 Step 1: Mission Brief
               </span>
-              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-[#EBF3FF] border border-[#BFDBFE] text-xs font-semibold text-[#1D4ED8]">
-                Artemis IV Readiness
-              </span>
+
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-[#1D1B17] tracking-tight leading-tight">
-              Artemis IV Terrestrial Readiness
+              ECHO Artemis IV Lunar Readiness
             </h1>
 
-            <p className="text-sm text-[#414943] leading-relaxed">
-              Prepare Artemis IV flight hardware for the lunar South Pole (2028). Identify high-fidelity Earth analog sites for cold-soak, rover mobility, and abrasive sulfur regolith testing.
+            <p className="text-xs sm:text-sm text-[#414943] leading-relaxed">
+              Targeting the Lunar South Pole (2028). Select a reference landing candidate below to focus the 3D Moon and discover verified Earth terrestrial analogs for cryogenic cold-soak, rover mobility, and abrasive regolith exposure.
             </p>
           </div>
 
-          {/* Quick Lunar Target Picker */}
-          <div className="space-y-2.5">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#696156]">
-              Select Reference Target
-            </span>
+          {/* Dynamic Target Switcher: Select Preferred Target */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#696156] flex items-center gap-1.5">
+                <Crosshair className="w-3.5 h-3.5 text-[#184633]" />
+                Select Preferred Target
+              </span>
+
+            </div>
+
             <div className="grid grid-cols-1 gap-2">
-              {LUNAR_PRESETS.map((preset) => {
-                const isSelected = activeTarget.id === preset.id && activeBody === 'moon';
+              {ARTEMIS_IV_TARGETS.map((target) => {
+                const isSelected = activeTarget.id === target.id;
                 return (
                   <button
-                    key={preset.id}
+                    key={target.id}
                     type="button"
-                    onClick={() => {
-                      if (activeBody !== 'moon') onChangeBody('moon');
-                      onSelectTarget(preset.id);
-                    }}
-                    className={`text-left px-4 py-3 rounded-2xl text-xs transition-all flex items-center justify-between cursor-pointer border ${
+                    onClick={() => handleSelectTarget(target.id)}
+                    className={`text-left px-3.5 py-2.5 rounded-2xl text-xs transition-all flex items-center justify-between cursor-pointer border ${
                       isSelected
-                        ? 'bg-[#184633] text-[#FFFFFF] border-[#184633] font-semibold shadow-xs'
-                        : 'bg-[#FAF7F2] text-[#1D1B17] border-[#414943]/10 hover:border-[#184633]/40'
+                        ? 'bg-[#184633] text-[#FFFFFF] border-[#184633] font-semibold shadow-md ring-2 ring-[#BAEED1]/40'
+                        : 'bg-[#FAF7F2] text-[#1D1B17] border-[#414943]/10 hover:border-[#184633]/40 hover:bg-[#FFFFFF]'
                     }`}
                   >
-                    <div>
-                      <div className="font-bold text-sm leading-tight">{preset.name}</div>
+                    <div className="min-w-0 pr-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm leading-tight truncate">
+                          {target.name}
+                        </span>
+                        <span
+                          className={`text-[10px] px-2 py-0.2 rounded-full font-semibold shrink-0 ${
+                            isSelected
+                              ? 'bg-[#BAEED1] text-[#0F422E]'
+                              : 'bg-[#414943]/10 text-[#414943]'
+                          }`}
+                        >
+                          {target.badge}
+                        </span>
+                      </div>
                       <div
-                        className={`text-[11px] mt-0.5 font-mono ${
+                        className={`text-[11px] mt-0.5 font-mono truncate ${
                           isSelected ? 'text-[#BAEED1]' : 'text-[#696156]'
                         }`}
                       >
-                        {preset.coord} · {preset.tag}
+                        {target.coord} · {target.tag}
                       </div>
                     </div>
-                    {isSelected && (
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#BAEED1] shrink-0" />
+
+                    {isSelected ? (
+                      <span className="w-3 h-3 rounded-full bg-[#BAEED1] shrink-0 ring-4 ring-[#BAEED1]/20 animate-pulse" />
+                    ) : (
+                      <span className="w-2.5 h-2.5 rounded-full border border-[#414943]/20 shrink-0" />
                     )}
                   </button>
                 );
@@ -184,62 +235,96 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </div>
           </div>
 
-          {/* Selected Target Stats in Clean Large Numbers */}
-          <div className="grid grid-cols-3 gap-3 bg-[#FAF7F2] rounded-2xl p-4 border border-[#414943]/8">
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#696156]">
-                Coordinates
+          {/* Target NASA PDS Verified Telemetry Card */}
+          <div className="bg-[#FAF7F2] rounded-2xl p-4 sm:p-5 border border-[#414943]/10 space-y-3">
+            <div className="flex items-center justify-between border-b border-[#414943]/8 pb-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#184633] flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#184633]" />
+                NASA PDS Verified Telemetry · {activeTarget.name}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-white/90 rounded-xl p-2.5 border border-[#414943]/8">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[#696156] flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-[#184633]" />
+                  Coordinates
+                </div>
+                <div className="font-mono font-bold text-xs sm:text-sm text-[#1D1B17] mt-1 whitespace-normal break-words" title={activeTarget.coordinates}>
+                  {activeTarget.coordinates}
+                </div>
+                <div className="text-[10px] text-[#696156] font-mono mt-0.5">
+                  South Pole Grid
+                </div>
               </div>
-              <div className="font-mono font-bold text-xs sm:text-sm text-[#1D1B17] mt-1 truncate" title={activeTarget.coordinates}>
-                {activeTarget.coordinates}
+
+              <div className="bg-white/90 rounded-xl p-2.5 border border-[#414943]/8">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[#696156] flex items-center gap-1">
+                  <Mountain className="w-3 h-3 text-[#184633]" />
+                  Elevation
+                </div>
+                <div className="font-display font-bold text-xs sm:text-sm text-[#184633] mt-1 whitespace-normal">
+                  {activeTarget.elevationM >= 0 ? '+' : ''}{activeTarget.elevationM.toLocaleString()} m
+                </div>
+                <div className="text-[10px] text-[#696156] font-mono mt-0.5">
+                  Lunar Datum
+                </div>
+              </div>
+
+              <div className="bg-white/90 rounded-xl p-2.5 border border-[#414943]/8">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[#696156] flex items-center gap-1">
+                  <Thermometer className="w-3 h-3 text-[#E06A3B]" />
+                  Temp Range
+                </div>
+                <div className="font-mono font-bold text-xs sm:text-sm text-[#E06A3B] mt-1 whitespace-normal">
+                  {activeTarget.minTempC}° to {activeTarget.maxTempC >= 0 ? '+' : ''}{activeTarget.maxTempC}°C
+                </div>
+                <div className="text-[10px] text-[#696156] font-mono mt-0.5">
+                  Mean: {activeTarget.meanTempC}°C
+                </div>
+              </div>
+
+              <div className="bg-white/90 rounded-xl p-2.5 border border-[#414943]/8">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[#696156] flex items-center gap-1">
+                  <Sun className="w-3 h-3 text-[#E69A28]" />
+                  Slope & Sun
+                </div>
+                <div className="font-mono font-bold text-xs sm:text-sm text-[#1D1B17] mt-1 whitespace-normal">
+                  {activeTarget.meanSlopeDeg}° slope
+                </div>
+                <div className="text-[10px] text-[#E69A28] font-mono font-semibold mt-0.5 whitespace-normal">
+                  Sun: {activeTarget.solarElevationMinDeg.toFixed(1)}°–{activeTarget.solarElevationMaxDeg.toFixed(1)}°
+                </div>
               </div>
             </div>
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#696156]">
-                Elevation
-              </div>
-              <div className="font-display font-bold text-xs sm:text-sm text-[#184633] mt-1 truncate">
-                {activeTarget.elevationM >= 0 ? '+' : ''}{activeTarget.elevationM.toLocaleString()} m
-              </div>
-            </div>
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#696156]">
-                Temp Range
-              </div>
-              <div className="font-mono font-bold text-[11px] sm:text-xs text-[#E06A3B] mt-1 truncate">
-                {activeTarget.minTempC}° to {activeTarget.maxTempC >= 0 ? '+' : ''}{activeTarget.maxTempC}°C
-              </div>
-            </div>
+
+            <p className="text-xs text-[#414943] leading-relaxed pt-1 border-t border-[#414943]/8">
+              {activeTarget.summary}
+            </p>
           </div>
 
-          {/* Large Bold CTA Button */}
+          {/* Large Bold CTA Button to Module 2 */}
           <button
             type="button"
             onClick={handleStartDiscovery}
-            className="w-full py-4 px-6 rounded-2xl bg-[#184633] hover:bg-[#2A5A44] active:scale-[0.99] text-[#FFFFFF] text-base font-bold transition-all flex items-center justify-center gap-2.5 shadow-md cursor-pointer focus:outline-none focus-visible:ring-4 focus-visible:ring-[#184633]/30"
+            className="w-full py-3.5 px-6 rounded-2xl bg-[#184633] hover:bg-[#2A5A44] active:scale-[0.99] text-[#FFFFFF] text-sm sm:text-base font-bold transition-all flex items-center justify-center gap-2.5 shadow-md cursor-pointer focus:outline-none focus-visible:ring-4 focus-visible:ring-[#184633]/30"
           >
-            <span>Discover Earth Analogs</span>
+            <span>Discover Earth Analogs →</span>
             <ArrowRight className="w-5 h-5 text-[#BAEED1]" />
           </button>
         </div>
 
-        {/* Right Column: Large Crisp 3D Globe / Terrain */}
+        {/* Right Column: Large Crisp 3D Moon Stage with Artemis IV Pointers */}
         <div className="lg:col-span-7 bg-[#FFFFFF] rounded-3xl border border-[#414943]/10 shadow-soft-card p-5 sm:p-6 flex flex-col justify-between min-h-[520px]">
           {/* Header toolbar */}
           <div className="flex flex-wrap items-center justify-between gap-3 mb-3 z-10">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FAF7F2] border border-[#414943]/10 font-mono text-xs font-bold text-[#1D1B17]">
-              <span className="w-2 h-2 rounded-full bg-[#E06A3B]" />
-              <span>
-                {activeBody === 'moon'
-                  ? 'Lunar South Pole 3D'
-                  : activeBody === 'mars'
-                    ? 'Mars Areocentric 3D'
-                    : 'Earth Geodetic 3D'}
-              </span>
+              <span className="w-2 h-2 rounded-full bg-[#2563EB] animate-pulse" />
+              <span>Lunar South Pole 3D</span>
               <span className="text-[#C0C9C1]">|</span>
-              <span className="text-[#696156]">
-                {activeBody === 'moon' ? '240m LOLA DEM' : '30m SRTM'}
-              </span>
+              <span className="text-[#696156]">240m LOLA DEM</span>
+              <span className="text-[#C0C9C1]">|</span>
+              <span className="text-[#1D4ED8] font-semibold">Artemis IV Reference</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -253,6 +338,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                       ? 'bg-[#184633] text-white font-bold shadow-xs'
                       : 'text-[#696156] hover:text-[#1D1B17]'
                   }`}
+                  title="3D Oblique Orbit View"
                 >
                   3D Orbit
                 </button>
@@ -264,6 +350,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                       ? 'bg-[#184633] text-white font-bold shadow-xs'
                       : 'text-[#696156] hover:text-[#1D1B17]'
                   }`}
+                  title="Nadir Polar View"
                 >
                   Top View
                 </button>
@@ -275,6 +362,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                       ? 'bg-[#184633] text-white font-bold shadow-xs'
                       : 'text-[#696156] hover:text-[#1D1B17]'
                   }`}
+                  title="Low-Angle Relief View"
                 >
                   Relief
                 </button>
@@ -284,7 +372,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               <button
                 type="button"
                 onClick={() => setShowPins((p) => !p)}
-                title="Toggle Target Markers"
+                title="Toggle Artemis IV Markers"
                 className={`px-3 py-1 rounded-full border border-[#414943]/10 text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
                   showPins
                     ? 'bg-[#EAF4EE] text-[#0F422E] border-[#BAEED1]'
@@ -299,7 +387,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               <button
                 type="button"
                 onClick={() => setAutoRotate((r) => !r)}
-                title="Toggle Rotation"
+                title="Toggle Slow Orbit Rotation"
                 className={`p-1.5 rounded-full border border-[#414943]/10 transition-colors cursor-pointer ${
                   autoRotate
                     ? 'bg-[#184633] text-white'
@@ -311,96 +399,44 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </div>
           </div>
 
-          {/* 3D Stage */}
-          <div className="relative flex-1 w-full flex items-center justify-center min-h-[420px] rounded-2xl overflow-hidden bg-[#FAF7F2]/50 border border-[#414943]/6">
-            {stageMode === 'orbit' ? (
-              activeBody === 'moon' ? (
-                <div className="h-[460px] w-full bg-transparent flex items-center justify-center overflow-hidden">
-                  <LunarSouthPoleTerrain />
-                </div>
-              ) : (
-                <PlanetaryGlobe3D
-                  body={activeBody}
-                  activeLayerId={activeLayerId}
-                  pins={globePins}
-                  onPinClick={(pinId) => {
-                    if (activeBody === 'earth') {
-                      onSelectSite(pinId);
-                    } else {
-                      onSelectTarget(pinId);
-                    }
-                  }}
-                  autoRotate={autoRotate}
-                  layerOpacity={1}
-                  focusLat={activeBody === 'earth' ? selectedSite.lat : activeTarget.lat}
-                  focusLon={activeBody === 'earth' ? selectedSite.lon : activeTarget.lon}
-                  cameraMode="orbit"
-                  themeSurface="studio-light"
-                />
-              )
-            ) : (
-              /* Cartographic 2D Projection */
-              <div className="relative w-full h-full flex items-center justify-center p-4">
-                <svg
-                  viewBox="0 0 500 500"
-                  className="w-full max-w-[420px] max-h-[420px] drop-shadow-sm"
-                >
-                  <circle cx="250" cy="250" r="230" fill="#FAF6EE" stroke="#E2DACF" strokeWidth="2" />
-                  <circle cx="250" cy="250" r="180" fill="none" stroke="#EADFCF" strokeWidth="1" strokeDasharray="3,3" />
-                  <circle cx="250" cy="250" r="120" fill="none" stroke="#E2DACF" strokeWidth="1" />
-                  <circle cx="250" cy="250" r="60" fill="none" stroke="#E2DACF" strokeWidth="1" />
-                  <line x1="250" y1="20" x2="250" y2="480" stroke="#E5DCCE" strokeWidth="1" />
-                  <line x1="20" y1="250" x2="480" y2="250" stroke="#E5DCCE" strokeWidth="1" />
-                  <text x="250" y="38" textAnchor="middle" fill="#94A3B8" fontSize="9" fontFamily="JetBrains Mono" letterSpacing="0.08em">
-                    0° PRIME MERIDIAN • LUNAR SOUTH POLE PROJECTION
-                  </text>
-                  <circle cx="310" cy="210" r="42" fill="#E8DEC8" stroke="#D3C5AB" strokeWidth="1.5" />
-                  <text x="310" y="214" textAnchor="middle" fill="#786B54" fontSize="10" fontFamily="Outfit" fontWeight="600">
-                    FAUSTINI
-                  </text>
-                  <circle cx="210" cy="285" r="46" fill="#E8DEC8" stroke="#D3C5AB" strokeWidth="1.5" />
-                  <text x="210" y="289" textAnchor="middle" fill="#786B54" fontSize="10" fontFamily="Outfit" fontWeight="600">
-                    SHOEMAKER
-                  </text>
-                  <circle cx="250" cy="250" r="26" fill="#184633" stroke="#2A5A44" strokeWidth="2.5" opacity="0.85" />
-                  <circle cx="250" cy="250" r="12" fill="#0A2419" />
-                  <circle cx="250" cy="120" r="32" fill="#EADFCF" stroke="#D3C5AB" strokeWidth="1.2" />
-                  <text x="250" y="124" textAnchor="middle" fill="#786B54" fontSize="9" fontFamily="Outfit" fontWeight="600">
-                    MALAPERT
-                  </text>
-                  <circle cx="230" cy="180" r="30" fill="#2A5A44" stroke="#184633" strokeWidth="1.5" opacity="0.75" />
-                  <text x="230" y="184" textAnchor="middle" fill="#BAEED1" fontSize="8" fontFamily="Outfit" fontWeight="600">
-                    HAWORTH PSR
-                  </text>
-                </svg>
-              </div>
-            )}
+          {/* 3D Moon Stage with Dynamic Rotation and Artemis IV Location Pointers */}
+          <div className="relative flex-1 w-full flex items-center justify-center min-h-[440px] rounded-2xl overflow-hidden bg-[#FAF7F2]/50 border border-[#414943]/6">
+            <PlanetaryGlobe3D
+              body="moon"
+              activeLayerId={activeLayerId}
+              pins={globePins}
+              onPinClick={handleSelectTarget}
+              autoRotate={autoRotate}
+              showPins={showPins}
+              layerOpacity={0.85}
+              focusLat={activeTarget.lat}
+              focusLon={activeTarget.lon}
+              cameraMode={stageMode === 'top' ? 'polar' : stageMode === 'relief' ? 'relief' : 'orbit'}
+              themeSurface="studio-light"
+            />
 
-            {/* Floating HUD info */}
-            <div className="absolute top-3 left-3 z-10 pointer-events-none">
-              <div className="bg-[#FFFFFF]/95 backdrop-blur-sm rounded-full border border-[#414943]/10 shadow-soft-card px-3.5 py-1.5 flex items-center gap-2 text-xs font-mono text-[#1D1B17]">
-                <Sun className="w-3.5 h-3.5 text-[#E69A28] shrink-0" />
-                <span>
-                  Grazing Sun: Subsolar +{activeTarget.solarElevationMinDeg.toFixed(2)}°
-                </span>
-              </div>
+            {/* Hint overlay on bottom right */}
+            <div className="absolute bottom-3 right-3 z-10 pointer-events-none">
+              <span className="bg-[#FFFFFF]/90 backdrop-blur-sm px-2.5 py-1 rounded-full border border-[#414943]/10 text-[10px] font-mono text-[#696156]">
+                Click any pin or candidate to rotate
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Bottom Row: 3 Simple Cards */}
+      {/* Bottom Row: 3 Architecture Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Card 1 */}
         <div className="bg-[#FFFFFF] rounded-3xl border border-[#414943]/10 shadow-soft-card p-6 space-y-2 hover:border-[#184633]/30 transition-all">
           <div className="flex items-center gap-3">
             <span className="text-2xl">🎯</span>
             <h3 className="font-display font-bold text-lg text-[#1D1B17]">
-              Target 2028
+              Artemis IV South Pole (2028)
             </h3>
           </div>
           <p className="text-xs sm:text-sm text-[#414943] leading-relaxed">
-            4 astronauts in orbit, 2 on lunar South Pole surface for ~1 week with Axiom spacesuits.
+            4 astronauts in orbit, 2 on the lunar South Pole surface for ~1 week with Axiom lunar spacesuits, exploring permanently shadowed volatile cold-traps.
           </p>
         </div>
 
@@ -409,11 +445,11 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           <div className="flex items-center gap-3">
             <span className="text-2xl">🌍</span>
             <h3 className="font-display font-bold text-lg text-[#1D1B17]">
-              Earth Analogs
+              Terrestrial Analogs
             </h3>
           </div>
           <p className="text-xs sm:text-sm text-[#414943] leading-relaxed">
-            Match high-altitude salars, Antarctic permafrost, and basalt fields.
+            High-altitude salars, Antarctic Dry Valleys permafrost, and volcanic basalt fields matched via 8-dimensional multi-sensor NASA PDS similarity algorithms.
           </p>
         </div>
 
@@ -422,11 +458,11 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           <div className="flex items-center gap-3">
             <span className="text-2xl">🔬</span>
             <h3 className="font-display font-bold text-lg text-[#1D1B17]">
-              Hardware Lab
+              ECHO Hardware Testing Lab
             </h3>
           </div>
           <p className="text-xs sm:text-sm text-[#414943] leading-relaxed">
-            Simulate abrasive sulfur degradation and verify legal permit requirements.
+            Simulate abrasive sulfur regolith degradation on 3D rover CAD models, plan 2.5D traverses, and verify real-world land access permits.
           </p>
         </div>
       </div>

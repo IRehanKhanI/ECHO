@@ -157,7 +157,7 @@ export const EMPIRICAL_VALIDATION_POINTS: ValidationTestPoint[] = [
 
 export function buildCsvReport(): string {
   const lines: string[] = [];
-  lines.push('# TERraOps Validation & Benchmark Report');
+  lines.push('# ECHO Validation & Benchmark Report');
   lines.push('# Dataset: simulation_dataset.csv (1000 rows)');
   lines.push('');
   lines.push('MODEL COMPARISON BENCHMARK');
@@ -185,7 +185,7 @@ export function buildHtmlReport(targetName: string, siteName: string): string {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>TERraOps Validation & Evidence Report — ${targetName}</title>
+  <title>ECHO Validation & Evidence Report — ${targetName}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #FAF7F2; color: #1D1B17; margin: 0; padding: 32px; line-height: 1.5; }
     .container { max-width: 960px; margin: 0 auto; background: #FFFFFF; padding: 40px; border-radius: 20px; border: 1px solid rgba(65,73,67,0.12); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
@@ -205,7 +205,7 @@ export function buildHtmlReport(targetName: string, siteName: string): string {
 <body>
   <div class="container">
     <div style="display:flex; justify-content:space-between; align-items:center;">
-      <span class="badge badge-primary">TERraOps · ARTEMIS IV READINESS PLATFORM</span>
+      <span class="badge badge-primary">ECHO · ARTEMIS IV READINESS PLATFORM</span>
       <span class="badge badge-accent">MODULE F · EVIDENCE AUDIT</span>
     </div>
     <h1>Equipment Exposure Lab & Validation Report</h1>
@@ -274,7 +274,7 @@ export function buildHtmlReport(targetName: string, siteName: string): string {
     </table>
 
     <div class="footer">
-      Generated automatically by TERraOps Ground Analog Studio · Conforms to NASA Open Science and Artemis IV Equipment Readiness Guidelines
+      Generated automatically by ECHO Ground Analog Studio · Conforms to NASA Open Science and Artemis IV Equipment Readiness Guidelines
     </div>
   </div>
 </body>

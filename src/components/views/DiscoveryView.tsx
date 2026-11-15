@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
+  Database,
   Globe,
-  MapPin,
   Mountain,
   RotateCw,
   Search,
@@ -34,6 +34,12 @@ export const SITE_COUNTRY_FLAGS: Record<string, string> = {
   black_point: '🇺🇸',
   haughton_crater: '🇨🇦',
   atacama_yungay: '🇨🇱',
+  atacama_pajonales: '🇨🇱',
+  stillwater: '🇺🇸',
+  shawmere: '🇨🇦',
+  craters_moon: '🇺🇸',
+  san_francisco_volcanic: '🇺🇸',
+  mojave_silver_lake: '🇺🇸',
   pilbara: '🇦🇺',
   death_valley: '🇺🇸',
   negev_dmars: '🇮🇱',
@@ -43,6 +49,8 @@ export const SITE_COUNTRY_FLAGS: Record<string, string> = {
   kilauea: '🇺🇸',
   salar_gorbea: '🇨🇱',
   svalbard: '🇳🇴',
+  salar_pedernales: '🇨🇱',
+  victoria_valley: '🇦🇶',
 };
 
 export const SITE_BIOME_ICONS: Record<string, string> = {
@@ -50,6 +58,12 @@ export const SITE_BIOME_ICONS: Record<string, string> = {
   black_point: '🌋',
   haughton_crater: '🕳️',
   atacama_yungay: '🏜️',
+  atacama_pajonales: '🏜️',
+  stillwater: '🌋',
+  shawmere: '🌋',
+  craters_moon: '🌋',
+  san_francisco_volcanic: '🌋',
+  mojave_silver_lake: '🏜️',
   pilbara: '🌋',
   death_valley: '🏜️',
   negev_dmars: '🏜️',
@@ -59,6 +73,8 @@ export const SITE_BIOME_ICONS: Record<string, string> = {
   kilauea: '🌋',
   salar_gorbea: '🌋',
   svalbard: '❄️',
+  salar_pedernales: '🏜️',
+  victoria_valley: '❄️',
 };
 
 export const SITE_ONE_LINERS: Record<string, string> = {
@@ -70,6 +86,18 @@ export const SITE_ONE_LINERS: Record<string, string> = {
     '23-km Arctic impact structure in cold polar desert reproducing shattered impact melt and shatter cones.',
   atacama_yungay:
     'Hyper-arid desert core with near-zero precipitation, perchlorate salts, and extreme diurnal solar UV flux.',
+  atacama_pajonales:
+    'High-altitude gypsum crusts with intense diurnal UV radiation and hyper-aridity matching lunar exposed regolith.',
+  stillwater:
+    'Archean stratiform anorthosite complex with 90%+ calcic plagioclase matching lunar ferroan anorthosite highlands.',
+  shawmere:
+    'Precambrian high-pressure anorthosite massif with coarse bytownite plagioclase analogous to Apollo 16 highland regolith.',
+  craters_moon:
+    'Holocene flood basalt flow fields, cinder cones, and lava tubes used historically for Apollo astronaut field geology.',
+  san_francisco_volcanic:
+    'Extensive basaltic cinders, spatter cones, and lava tubes utilized in Desert RATS rover and suit mobility trials.',
+  mojave_silver_lake:
+    'Hyper-arid playa mudflats and gravel corridors ideal for long-range robotic mobility and wheel-traction characterization.',
   pilbara:
     'Ancient 3.5-billion-year-old basaltic greenstone terrain with silicified hydrothermal deposits and rugged scarps.',
   death_valley:
@@ -88,6 +116,25 @@ export const SITE_ONE_LINERS: Record<string, string> = {
     'High-altitude acidic volcanic salar with massive native sulfur deposits and cryogenic thermal swings.',
   svalbard:
     'High-Arctic archipelago with permafrost, volcanic necks, and hydrothermal carbonate deposits for cryogenic testing.',
+  salar_pedernales:
+    'Virgin high-Andean evaporite basin never utilized in prior NASA campaigns; pristine borate and sulfate crystal flats.',
+  victoria_valley:
+    'Pristine Dry Valleys polar corridor featuring active permafrost barchan dunes unvisited by human field trials.',
+};
+
+export const getCountryFlag = (site: { id: string; country?: string }): string => {
+  if (site.id && SITE_COUNTRY_FLAGS[site.id]) return SITE_COUNTRY_FLAGS[site.id];
+  const c = (site.country || '').toLowerCase();
+  if (c.includes('antarctica')) return '🇦🇶';
+  if (c.includes('usa') || c.includes('united states')) return '🇺🇸';
+  if (c.includes('canada')) return '🇨🇦';
+  if (c.includes('chile')) return '🇨🇱';
+  if (c.includes('norway')) return '🇳🇴';
+  if (c.includes('australia')) return '🇦🇺';
+  if (c.includes('israel')) return '🇮🇱';
+  if (c.includes('finland')) return '🇫🇮';
+  if (c.includes('china')) return '🇨🇳';
+  return '🌐';
 };
 
 export interface DiscoveryViewProps {
@@ -116,6 +163,8 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
   rankedCandidates,
   selectedSite,
   onSelectSite,
+  noveltyOnly = false,
+  onToggleNovelty,
   onOpenDossier,
   onNavigate,
 }) => {
@@ -123,6 +172,64 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
   const [activeFilter, setActiveFilter] = useState<'all' | 'volcanic' | 'polar' | 'desert'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [autoRotate, setAutoRotate] = useState<boolean>(false);
+
+  // Dynamic database state
+  const [backendMatches, setBackendMatches] = useState<EarthAnalogResult[] | null>(null);
+  const [isBackendLive, setIsBackendLive] = useState<boolean>(false);
+  const [, setIsLoadingBackend] = useState<boolean>(false);
+
+  // Connect to Django Backend API (/api/find-analog/)
+  useEffect(() => {
+    const controller = new AbortController();
+    const fetchBackendAnalogs = async () => {
+      setIsLoadingBackend(true);
+      try {
+        let response: Response | null = null;
+        const payload = JSON.stringify({
+          target_id: activeTarget.id,
+          lunar_temp_c: activeTarget.minTempC,
+          lunar_slope_deg: activeTarget.meanSlopeDeg,
+        });
+
+        // 1. Try local dev backend on 127.0.0.1:8000
+        try {
+          response = await fetch('http://127.0.0.1:8000/api/find-analog/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+            signal: controller.signal,
+          });
+        } catch {
+          // 2. Fallback to relative path
+          response = await fetch('/api/find-analog/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+            signal: controller.signal,
+          });
+        }
+
+        if (response && response.ok) {
+          const data = (await response.json()) as { matches?: EarthAnalogResult[] };
+          if (data && Array.isArray(data.matches) && data.matches.length > 0) {
+            setBackendMatches(data.matches);
+            setIsBackendLive(true);
+            return;
+          }
+        }
+        setIsBackendLive(false);
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          setIsBackendLive(false);
+        }
+      } finally {
+        setIsLoadingBackend(false);
+      }
+    };
+
+    void fetchBackendAnalogs();
+    return () => controller.abort();
+  }, [activeTarget.id, activeTarget.minTempC, activeTarget.meanSlopeDeg]);
 
   // 4 Simple filter pills
   const FILTER_PILLS = [
@@ -132,57 +239,146 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
     { id: 'desert' as const, label: '🏜️ Desert (Atacama)' },
   ];
 
-  // Guaranteed fallback: If rankedCandidates is somehow empty, build from catalog
+  // Guaranteed fallback + Dynamic Database Merger
   const effectiveCandidates = useMemo(() => {
-    if (rankedCandidates && rankedCandidates.length > 0) {
-      return rankedCandidates;
+    // Base verified candidate list
+    const sourceCandidates: ScoredCandidate[] =
+      rankedCandidates && rankedCandidates.length > 0
+        ? [...rankedCandidates]
+        : EARTH_CANDIDATE_SITES.map((site, index) => ({
+            site,
+            bestMonthIndex: 0,
+            bestMonthScore: Math.max(65, 92 - index * 3),
+            annualMeanScore: Math.max(60, 88 - index * 3),
+            monthlyScores: Array(12).fill(80),
+            dimensionBreakdown: [],
+            windowSummary: {
+              startDateLabel: 'Jan 01',
+              endDateLabel: 'Mar 31',
+              durationDays: 90,
+              peakDateLabel: 'Feb 15',
+              peakScore: 88,
+              thresholdPct: 75,
+              dailyScores: Array(365).fill(80),
+              validDayMask: Array(365).fill(true),
+              processAlignmentNote: 'Optimal operational window based on insolation and accessibility.',
+            },
+          }));
+
+    const baseList = noveltyOnly
+      ? sourceCandidates.filter((c) => !c.site.isCatalogKnown)
+      : sourceCandidates;
+
+    if (!backendMatches || backendMatches.length === 0) {
+      return baseList;
     }
-    return EARTH_CANDIDATE_SITES.map((site, index) => ({
-      site,
-      bestMonthIndex: 0,
-      bestMonthScore: Math.max(65, 92 - index * 3),
-      annualMeanScore: Math.max(60, 88 - index * 3),
-      monthlyScores: Array(12).fill(80),
-      dimensionBreakdown: [],
-      windowSummary: {
-        startDateLabel: 'Jan 01',
-        endDateLabel: 'Mar 31',
-        durationDays: 90,
-        peakDateLabel: 'Feb 15',
-        peakScore: 88,
-        thresholdPct: 75,
-        dailyScores: Array(365).fill(80),
-        validDayMask: Array(365).fill(true),
-        processAlignmentNote: 'Optimal operational window based on insolation and accessibility.',
-      },
-    }));
-  }, [rankedCandidates]);
+
+    // Match backend records with existing candidate objects
+    const findCandidate = (match: EarthAnalogResult): ScoredCandidate | undefined => {
+      const matchName = match.location_name.toLowerCase();
+      return baseList.find((c) => {
+        const cName = c.site.name.toLowerCase();
+        const cId = c.site.id.toLowerCase();
+        if (cName.includes(matchName) || matchName.includes(cName)) return true;
+        if (cId === matchName.replace(/\s+/g, '_')) return true;
+        if (matchName.includes('university valley') && cId === 'univ_valley') return true;
+        if (matchName.includes('black point') && cId === 'black_point') return true;
+        if (matchName.includes('haughton') && cId === 'haughton_crater') return true;
+        if (matchName.includes('salar de gorbea') && cId === 'salar_gorbea') return true;
+        if (matchName.includes('pedernales') && cId === 'salar_pedernales') return true;
+        if (matchName.includes('victoria') && cId === 'victoria_valley') return true;
+        if (matchName.includes('kilauea') && cId === 'kilauea') return true;
+        if (matchName.includes('pajonales') && cId === 'atacama_pajonales') return true;
+        if (matchName.includes('yungay') && cId === 'atacama_yungay') return true;
+        if (matchName.includes('stillwater') && cId === 'stillwater') return true;
+        if (matchName.includes('shawmere') && cId === 'shawmere') return true;
+        if (matchName.includes('svalbard') && cId === 'svalbard') return true;
+        if (matchName.includes('craters of the moon') && cId === 'craters_moon') return true;
+        if (matchName.includes('pyhäsalmi') && cId === 'pyhasalmi_mine') return true;
+        if (matchName.includes('qaidam') && cId === 'qaidam_basin') return true;
+        if (matchName.includes('death valley') && cId === 'death_valley') return true;
+        if (matchName.includes('pilbara') && cId === 'pilbara') return true;
+        if (matchName.includes('negev') && cId === 'negev_dmars') return true;
+        if (matchName.includes('mdrs') && cId === 'mdrs_utah') return true;
+        const dLat = Math.abs(c.site.lat - match.lat);
+        const dLon = Math.abs(c.site.lon - match.lng);
+        return dLat < 0.6 && dLon < 0.6;
+      });
+    };
+
+    const matchedCandidateIds = new Set<string>();
+    const mergedList: ScoredCandidate[] = [];
+
+    // 1. Merge and rank backend matches dynamically
+    backendMatches.forEach((match) => {
+      const existing = findCandidate(match);
+      const dynamicScore = Math.max(
+        62,
+        Math.min(99, Math.round((1 - Math.min(1.0, match.cosine_distance * 0.42)) * 100))
+      );
+
+      if (existing) {
+        matchedCandidateIds.add(existing.site.id);
+        mergedList.push({
+          ...existing,
+          bestMonthScore: dynamicScore,
+          annualMeanScore: Math.max(58, dynamicScore - 3),
+        });
+      }
+    });
+
+    // 2. Append remainder of verified real candidate sites
+    baseList.forEach((c) => {
+      if (!matchedCandidateIds.has(c.site.id)) {
+        mergedList.push(c);
+      }
+    });
+
+    return mergedList;
+  }, [rankedCandidates, backendMatches, noveltyOnly]);
 
   // Filter candidates based on active filter pill & search query
   const filteredCandidates = useMemo(() => {
     return effectiveCandidates.filter((cand) => {
       const site = cand.site;
 
+      // 0. Novelty Filter
+      if (noveltyOnly && site.isCatalogKnown) return false;
+
       // 1. Filter pill match
       let matchesFilter = true;
       if (activeFilter === 'volcanic') {
         matchesFilter =
           site.analogueCategory === 'basalt_volcanic' ||
-          ['black_point', 'kilauea', 'pilbara', 'salar_gorbea'].includes(site.id) ||
-          (site.geologySummary ? site.geologySummary.toLowerCase().includes('basalt') : false);
+          ['black_point', 'kilauea', 'pilbara', 'salar_gorbea', 'stillwater', 'shawmere', 'craters_moon'].includes(
+            site.id,
+          ) ||
+          (site.geologySummary
+            ? site.geologySummary.toLowerCase().includes('basalt') ||
+              site.geologySummary.toLowerCase().includes('anorthosite')
+            : false);
       } else if (activeFilter === 'polar') {
         matchesFilter =
           site.analogueCategory === 'cold_polar' ||
-          ['univ_valley', 'svalbard', 'haughton_crater'].includes(site.id) ||
+          ['univ_valley', 'svalbard', 'haughton_crater', 'pyhasalmi_mine', 'victoria_valley'].includes(site.id) ||
           site.biomeCharacter.toLowerCase().includes('polar') ||
-          site.biomeCharacter.toLowerCase().includes('permafrost');
+          site.biomeCharacter.toLowerCase().includes('permafrost') ||
+          site.biomeCharacter.toLowerCase().includes('cold');
       } else if (activeFilter === 'desert') {
         matchesFilter =
           site.analogueCategory === 'arid_saline' ||
           site.analogueCategory === 'operational_isolation' ||
-          ['atacama_yungay', 'death_valley', 'negev_dmars', 'mdrs_utah', 'qaidam_basin'].includes(
-            site.id,
-          ) ||
+          [
+            'atacama_yungay',
+            'atacama_pajonales',
+            'salar_pedernales',
+            'salar_gorbea',
+            'death_valley',
+            'negev_dmars',
+            'mdrs_utah',
+            'qaidam_basin',
+            'mojave_silver_lake',
+          ].includes(site.id) ||
           site.biomeCharacter.toLowerCase().includes('arid');
       }
 
@@ -245,19 +441,23 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full bg-[#EAF4EE] border border-[#2A5A44]/20 text-xs font-bold text-[#0F422E]">
-                Module 2 · Discover Sites
-              </span>
               <span className="text-xs text-[#696156]">
                 Target: <strong className="text-[#1D1B17] font-semibold">{activeTarget.name}</strong> ({activeTarget.body.toUpperCase()})
               </span>
-              <ProvenanceBadge tag="VERIFIED NASA PDS / EARTHDATA" />
+              {isBackendLive ? (
+                <span className="px-2.5 py-0.5 rounded-full bg-[#EAF4EE] border border-[#2A5A44]/20 text-xs font-bold text-[#0F422E] flex items-center gap-1.5">
+                  <Database className="w-3 h-3 text-[#184633]" />
+                  <span>Dynamic Database Active</span>
+                </span>
+              ) : (
+                <ProvenanceBadge tag="VERIFIED NASA PDS / EARTHDATA" />
+              )}
             </div>
             <h1 className="text-2xl font-display font-bold text-[#1D1B17] tracking-tight">
               Discover Earth Analog Test Sites
             </h1>
             <p className="text-xs sm:text-sm text-[#696156] max-w-2xl leading-relaxed">
-              Earth test sites ranked by environmental fidelity against Artemis IV equipment qualification requirements.
+              Real-world Earth test sites dynamically ranked by environmental fidelity against Artemis IV equipment qualification requirements.
             </p>
           </div>
 
@@ -295,7 +495,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
               )}
             </div>
 
-            {/* Filter Pills */}
+            {/* Filter Pills + Novelty Toggle */}
             <div className="flex flex-wrap items-center gap-1.5">
               {FILTER_PILLS.map((pill) => {
                 const isActive = activeFilter === pill.id;
@@ -314,6 +514,25 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
                   </button>
                 );
               })}
+
+              <div className="h-5 w-px bg-[#414943]/15 mx-1 hidden sm:block" />
+
+              {/* 🌟 Novel / Unvisited Sites Only Toggle Pill */}
+              <button
+                type="button"
+                onClick={() => onToggleNovelty?.(!noveltyOnly)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  noveltyOnly
+                    ? 'bg-[#A33E11] text-white shadow-xs ring-2 ring-[#A33E11]/30'
+                    : 'bg-[#FDF2EC] text-[#A33E11] border border-[#F87171]/40 hover:bg-[#FCE7DC]'
+                }`}
+                title="Toggle virgin terrestrial analog candidate sites with zero prior documented NASA usage"
+              >
+                <span>🌟 Novel / Unvisited Sites Only</span>
+                {noveltyOnly && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                )}
+              </button>
             </div>
           </div>
 
@@ -355,7 +574,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
               const site = cand.site;
               const isSelected = site.id === currentSite.id;
               const matchScore = Math.round(cand.bestMonthScore || 85);
-              const flag = SITE_COUNTRY_FLAGS[site.id] || '🌐';
+              const flag = getCountryFlag(site);
               const oneLiner =
                 SITE_ONE_LINERS[site.id] ||
                 site.geologySummary ||
@@ -379,10 +598,16 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
                         {flag}
                       </span>
                       <div>
-                        <div className="flex items-center gap-1.5 text-xs text-[#696156]">
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-[#696156]">
                           <span className="font-semibold">{site.country}</span>
                           <span>·</span>
                           <span>{site.region}</span>
+                          {!site.isCatalogKnown && (
+                            <span className="px-2 py-0.5 rounded-full bg-[#FDF2EC] border border-[#F87171]/40 text-[10px] font-bold text-[#A33E11] uppercase tracking-wider inline-flex items-center gap-1">
+                              <Sparkles className="w-2.5 h-2.5 text-[#A33E11]" />
+                              <span>NEW UNEXPLORED CANDIDATE</span>
+                            </span>
+                          )}
                         </div>
                         <h3 className="font-display font-bold text-base sm:text-lg text-[#1D1B17] tracking-tight leading-snug">
                           {site.name}
@@ -400,6 +625,14 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
                   <p className="mt-2.5 text-xs text-[#414943] leading-relaxed">
                     {oneLiner}
                   </p>
+
+                  {/* Dataset Citation for Novel Sites */}
+                  {!site.isCatalogKnown && (
+                    <div className="mt-2 text-[11px] font-mono text-[#A33E11] bg-[#FDF2EC] px-3 py-1.5 rounded-xl border border-[#F87171]/30 flex flex-wrap items-center justify-between gap-1.5">
+                      <span>Citation: <strong>{site.catalogCitation || 'NASA Earthdata / Landsat OLI-2 / Sentinel-2 MSI'}</strong></span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-white/80 px-2 py-0.5 rounded-md border border-[#F87171]/20">Zero Documented NASA Usage</span>
+                    </div>
+                  )}
 
                   {/* 3 Clean mini-pills & Action Button */}
                   <div className="mt-3.5 pt-3 border-t border-[#414943]/8 flex flex-wrap items-center justify-between gap-2.5">
@@ -467,10 +700,11 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
               <PlanetaryGlobe3D
                 body="earth"
                 layerId="srtm_slope"
+                onlyActiveLabel={true}
                 pins={filteredCandidates.map((cand) => {
                   const isCandSelected = cand.site.id === currentSite.id;
                   const score = Math.round(cand.bestMonthScore || 80);
-                  const flag = SITE_COUNTRY_FLAGS[cand.site.id] || '🌐';
+                  const flag = getCountryFlag(cand.site);
                   return {
                     id: cand.site.id,
                     label: `${flag} ${cand.site.name.split(' (')[0]}`,
@@ -481,6 +715,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
                     scoreBadge: `${score}%`,
                   };
                 })}
+                onPinClick={(pinId) => onSelectSite(pinId)}
                 autoRotate={autoRotate}
                 layerOpacity={0.9}
                 focusLat={currentSite.lat}
@@ -495,7 +730,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
               <div className="flex items-start justify-between gap-2 border-b border-[#414943]/8 pb-2">
                 <div>
                   <div className="flex items-center gap-1.5 text-xs text-[#696156]">
-                    <span>{SITE_COUNTRY_FLAGS[currentSite.id]}</span>
+                    <span>{getCountryFlag(currentSite)}</span>
                     <span>{currentSite.country}</span>
                     <span>·</span>
                     <span className="font-mono">{currentSite.coordinates}</span>
@@ -509,6 +744,22 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
                   {currentScore}% Match
                 </div>
               </div>
+
+              {/* Special Badge for Novel / Unexplored Earth Candidate Sites */}
+              {!currentSite.isCatalogKnown && (
+                <div className="p-3.5 rounded-xl bg-[#FDF2EC] border border-[#F87171]/40 space-y-1.5 shadow-xs">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#A33E11]">
+                    <Sparkles className="w-4 h-4 text-[#A33E11]" />
+                    <span>🌟 NEW UNEXPLORED CANDIDATE</span>
+                  </div>
+                  <p className="text-[11px] text-[#414943] leading-relaxed">
+                    Virgin terrestrial analog candidate site with zero documented prior NASA field usage. Identified via planetary environmental multi-spectral matching.
+                  </p>
+                  <div className="text-[10px] font-mono text-[#A33E11] bg-white/90 px-2.5 py-1.5 rounded-lg border border-[#F87171]/25">
+                    Citation: {currentSite.catalogCitation || 'NASA Earthdata / Landsat 8/9 OLI-2 + Sentinel-2 MSI'}
+                  </div>
+                </div>
+              )}
 
               {/* Target vs Analog Comparison Grid */}
               <div className="space-y-2 text-xs">
@@ -570,7 +821,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
         </button>
 
         <div className="text-xs text-[#696156] hidden sm:block">
-          Selected: <strong className="text-[#1D1B17]">{SITE_COUNTRY_FLAGS[currentSite.id]} {currentSite.name}</strong> ({currentScore}% Match)
+          Selected: <strong className="text-[#1D1B17]">{getCountryFlag(currentSite)} {currentSite.name}</strong> ({currentScore}% Match)
         </div>
 
         <button

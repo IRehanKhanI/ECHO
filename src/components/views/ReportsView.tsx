@@ -78,7 +78,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
   const handleExportMarkdown = () => {
     const lines: string[] = [
-      `# TERraOps — Artemis IV Validation & Evidence Dossier`,
+      `# ECHO — Artemis IV Validation & Evidence Dossier`,
       `**Active Target:** ${activeTarget.name} (${activeTarget.body.toUpperCase()} Reference System)`,
       `**Top Recommended Analog Site:** ${selectedSite.name} (${selectedSite.country})`,
       `**Overall Fidelity Score:** ${topScore.toFixed(1)}%`,
@@ -97,7 +97,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       `- **Black Point Lava Flow (USA):** Mar 2027 – Jun 2027 · 80 Hours · Basaltic Rover Mobility & Traction Durability`,
     ];
     triggerDownload(
-      `TERraOps-Dossier-${activeTarget.id}-${selectedSite.id}.md`,
+      `ECHO-Dossier-${activeTarget.id}-${selectedSite.id}.md`,
       lines.join('\n'),
       'text/markdown',
     );
@@ -106,7 +106,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const handleExportCsv = () => {
     const csv = buildCsvReport();
     triggerDownload(
-      `TERraOps-Model-Benchmarks-${activeTarget.id}.csv`,
+      `ECHO-Model-Benchmarks-${activeTarget.id}.csv`,
       csv,
       'text/csv',
     );

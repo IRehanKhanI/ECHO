@@ -184,14 +184,12 @@ export default function App() {
       <TopCommandBar
         activeView={activeView}
         onChangeView={setActiveView}
-        activeBody={activeBody}
-        onChangeBody={handleChangeBody}
         onQuickExport={() => setActiveView('reports')}
         onNextStep={handleNextStep}
         onPrevStep={handlePrevStep}
       />
 
-      <main className="max-w-[1640px] w-full mx-auto px-4 sm:px-6 pt-4 pb-8 flex-1">
+      <main className="max-w-[1640px] w-full mx-auto px-4 sm:px-6 pt-6 pb-8 flex-1">
         {activeView === 'overview' && (
           <OverviewView
             activeBody={activeBody}
@@ -284,7 +282,7 @@ export default function App() {
         <div className="bg-[#FFFFFF] rounded-full border border-[#414943]/8 shadow-soft-card px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-[#696156]">
           <div className="flex items-center gap-2.5 truncate">
             <span className="font-display font-bold text-[#1D1B17]">
-              TERraOps
+              ECHO
             </span>
             <span aria-hidden="true">·</span>
             <span className="truncate">
