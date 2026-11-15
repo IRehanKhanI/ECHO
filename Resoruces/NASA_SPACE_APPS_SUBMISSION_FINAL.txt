@@ -1,0 +1,272 @@
+================================================================================
+   NASA SPACE APPS CHALLENGE 2026 — OFFICIAL PROJECT SUBMISSION FORM
+   Team: JINX  |  Project: ECHO (Earth Correlation & Habitat Observation)
+================================================================================
+
+INSTRUCTIONS:
+Below is every question on your Project Submission tab, arranged in the EXACT
+order shown on your screen. Copy and paste each block directly into the form.
+
+================================================================================
+SECTION 1: PROJECT SUMMARY
+================================================================================
+
+[FIELD: Project Name]
+ECHO — Earth Correlation & Habitat Observation
+
+
+--------------------------------------------------------------------------------
+[FIELD: Summary *]
+(Character count: 1,286 / 1,500 characters | Word count: 178 words)
+
+Project ECHO (Earth Correlation & Habitat Observation) is an end-to-end scientific decision-support and planetary permit intelligence platform engineered for NASA's Artemis IV lunar South Pole surface campaign (2028).
+
+Before astronauts conduct EVAs in permanently shadowed cold traps (<40 K) and test rover mobility across steep crater scarps (10°–25°) with abrasive plagioclase regolith and corrosive sulfur, flight hardware must undergo rigorous Earth analog qualification. However, existing analog catalogs are static and over-rely on a few traditional, heavily trodden sites.
+
+ECHO solves this through a 6-stage operational pipeline:
+1. Interactive 3D Lunar South Pole globe driven by NASA LRO LOLA topography and Diviner thermal radiometry.
+2. Multi-objective machine learning matching engine (R² = 95.10%, RMSE = 0.0315) that discovered 15 novel, unvisited Earth analog sites across Antarctica, the Chilean High Puna, and Iceland with zero prior documented NASA usage.
+3. Auditable 4-pillar scientific site dossiers.
+4. Google Gemini AI regulatory permit intelligence assessing zoning, environmental reviews, and statutory compliance (e.g., China Wolf Amendment P.L. 112-55 §539).
+5. 3D digital twin hardware exposure lab with CAD import and empirical sulfur degradation modeling.
+6. Empirical PDS4 validation dashboard.
+
+
+================================================================================
+SECTION 2: PROJECT LINKS
+================================================================================
+
+[FIELD: Project Demonstration *]
+(Paste the public URL to your 7-slide presentation or 30-second video demo)
+
+[PASTE YOUR PUBLIC SLIDES OR VIDEO URL HERE]
+
+(Examples: https://youtu.be/your_video_id OR public Google Drive/Slides link)
+
+
+--------------------------------------------------------------------------------
+[FIELD: Project *]
+(Paste the public URL to your code repository and/or live website)
+
+https://github.com/IRehanKhanI/ECHO
+
+
+================================================================================
+SECTION 3: PROJECT INFORMATION
+================================================================================
+
+[FIELD: Project Details *]
+(Copy and paste the entire text below into the rich text editor box)
+
+WHAT DOES IT DO AND HOW DOES IT WORK?
+Project ECHO is a full-stack planetary analog intelligence platform designed to qualify Earth test sites for NASA's Artemis IV lunar South Pole mission. It operates through six interconnected modules:
+
+1. Mission Brief: Renders an interactive 3D WebGL globe of the lunar South Pole (80°S–90°S) using authentic NASA LRO LOLA 240m altimetry and Diviner brightness temperatures. Mission architects select from four reference landing sites (Shackleton Rim Massif, Malapert Massif, Haworth PSR, Connecting Ridge) and compute real-time solar elevation angles (+2.4° to +7.1°) to model grazing glare and persistent shadow conditions.
+
+2. Discover Sites: A multi-objective machine learning engine compares eight coupled physical parameters (temperature extrema, slope gradient, sulfur concentration, plagioclase feldspar modal %, aridity, elevation, FeO wt %, and pyroxene content) between lunar targets and 30 global terrestrial candidate sites. A "Novel / Unvisited Sites Only" filter isolates 15 newly identified candidates across Antarctica, the Chilean High Puna, and Iceland with zero documented prior NASA field usage.
+
+3. Site Dossier: Delivers an auditable 4-pillar characterization (geomechanical, geochemical, thermal, and atmospheric) for every candidate, alongside explicit negative constraints explaining precisely where terrestrial physics diverges from lunar reality.
+
+4. Access & Permits: An AI regulatory intelligence engine powered by Google Gemini 2.5 Flash analyzes local zoning, environmental assessments (NEPA), export controls (ITAR/EAR), and US federal statutory compliance (China Wolf Amendment P.L. 112-55 §539). It generates pre-filled agency application drafts with one-click clipboard export.
+
+5. Exposure Lab: A 3D digital twin testing environment where users select Artemis IV CAD presets (TX-DRILL coring mast, Lunar Terrain Vehicle, Regolith Robotic Arm, Cold-Soak Lander) or upload custom CAD models (.glb, .gltf, .obj) to simulate material degradation under site-specific sulfur concentrations (200–1,600 ppm) and abrasive plagioclase contact per NASA-STD-5001B and NASA-STD-6016.
+
+6. Validation: An empirical ML validation dashboard presenting 5-model regression benchmarks, actual-vs-predicted scatter plots, residual distribution histograms, and 95% confidence intervals (±0.0494 mg/cm²) derived entirely from verified NASA PDS4 data.
+
+
+WHAT BENEFITS DOES IT HAVE?
+- Overcomes the "Legacy Analog Bottleneck": Breaks decades of field testing inertia by discovering 15 novel, pristine analog sites that better match lunar South Pole parameters than traditional, over-trodden locations.
+- Replaces Guesswork with Rigorous Quantified Matching: Replaces qualitative "looks similar" descriptions with an auditable multi-objective distance algorithm trained on authentic satellite and laboratory data.
+- Prevents Mission-Critical Permitting Delays: Identifies administrative jurisdictions, statutory lead times, and legal restrictions before field budgets are committed.
+- Pre-Flight Hardware Wear Simulation: Enables robotics and spacesuit engineers to stress-test 3D hardware components against realistic regolith abrasive wear prior to physical fabrication.
+
+
+WHAT IS THE INTENDED IMPACT?
+ECHO serves NASA Artemis mission planners, commercial lunar contractors (CLPS, HLS, LTV), planetary geologists, and analog consortia worldwide. By establishing a standardized, auditable framework for terrestrial analog qualification, ECHO reduces mission risk, prevents premature hardware failure on the lunar surface, and optimizes field deployment budgets for the Artemis campaign and future Mars surface missions.
+
+
+WHAT TOOLS, CODING LANGUAGES, HARDWARE, OR SOFTWARE DID YOU USE?
+- Frontend: React 19, TypeScript 7, Vite 8.3, Tailwind CSS 4.3, Lucide React, Motion.
+- 3D Computer Graphics: Three.js 0.187, @react-three/fiber 9.4, @react-three/drei 10.7 (custom WebGL shaders, OrbitControls, PBR materials).
+- Scientific Visualization: Recharts 3.10 (responsive SVG scatter plots, residual histograms, confidence envelopes).
+- Backend Framework: Python 3.14, Django 5.0, Django REST Framework 3.14.
+- Machine Learning & Scientific Computing: scikit-learn 1.3 (Random Forest Regression, RobustScaler, 5-fold spatial block cross-validation), NumPy 1.24, Pandas 2.0, xarray, h5netcdf.
+- AI Integration: Google Gemini 2.5 Flash via official @google/genai SDK for statutory permit synthesis.
+- External Data APIs: ECMWF Copernicus Climate Data Store (CDS API), EarthChem PetDB API, Open-Meteo Archive API.
+- Cloud & Deployment: Vercel multi-service architecture (Vite frontend + Django backend), GitHub.
+
+
+HOW IS YOUR PROJECT CREATIVE?
+1. Multi-Objective Vector Matching: Rather than ranking sites by a single metric, ECHO treats analog selection as a multi-dimensional vector optimization problem across eight coupled thermal, topographic, and mineralogical variables simultaneously.
+2. Novelty Discovery Engine: Unlike existing catalogs that merely document established sites, ECHO actively searches global Earth observation datasets to surface unvisited candidate locations.
+3. Integration of Science, Engineering, and Law: ECHO uniquely links planetary geology (PDS data), spaceflight mechanical engineering (3D CAD digital twins), and aerospace law (Wolf Amendment and statutory permit intelligence) into a single cohesive application.
+4. Custom CAD Digital Twin Importer: Engineers can drag-and-drop their own .glb, .gltf, or .obj rover components into the WebGL scene and watch real-time surface degradation based on site geochemistry.
+
+
+WHAT FACTORS DID YOUR TEAM CONSIDER?
+- Scientific Fidelity & Non-Negotiable Physics: Terrestrial analogs cannot reproduce lunar vacuum (10⁻⁹ Torr), 1/6th gravity (1.62 m/s²), solar wind cosmic radiation, or electrostatic regolith levitation. ECHO explicitly flags these negative constraints so mission planners do not make false assumptions.
+- Statutory & Regulatory Compliance: Addressed US Public Law 112-55 §539 (Wolf Amendment), Indigenous sovereignty, environmental review thresholds (NEPA Categorical Exclusions vs. Environmental Assessments), and radio spectrum allocations.
+- Open Science & Accessibility: Built entirely with open-source tools, open NASA/ESA data records, zero client-side installation requirements, and responsive cross-device layout.
+- Computational Efficiency: The machine learning inference executes in sub-10ms response times; 3D rendering uses optimized GPU shader pipelines to run smoothly on standard laptops.
+
+
+--------------------------------------------------------------------------------
+[FIELD: Use of Super Intelligence (SI) *]
+
+Dropdown Selections:
+[X] Code / Software Development
+[X] Text / Content Generation
+[X] Image / Visual Asset Generation
+
+Disclosure Statement:
+1. Code: Large language models (Google Gemini 2.5 Flash, Claude 3.7) were utilized to accelerate full-stack development, boilerplate generation, and scientific formula validation across React, TypeScript, and Django.
+2. Text: Google Gemini 2.5 Flash is integrated directly into Module 4 (Access & Permits) to synthesize complex municipal and international permit regulations. All AI-generated outputs are explicitly watermarked and labeled as "AI ADVISORY — HUMAN AUDIT REQUIRED" to strictly separate AI predictions from verified public statutory records.
+3. Images: The ECHO mission insignia and project logo were created with generative AI assistance and contain a visible SI-generated acknowledgment. No NASA logos, flags, or protected mission identifiers were generated or modified.
+
+
+--------------------------------------------------------------------------------
+[FIELD: NASA Data *]
+(Click "+ Add New Link" for each row below)
+
+Row 1:
+Link Text: NASA LRO LOLA Gridded Data Records (PDS4)
+Link Url:  https://pds-geosciences.wustl.edu/missions/lro/lola.htm
+
+Row 2:
+Link Text: NASA LRO Diviner Lunar Radiometer Experiment (DLRE)
+Link Url:  https://pds-geosciences.wustl.edu/missions/lro/diviner.htm
+
+Row 3:
+Link Text: NASA MODIS Terra/Aqua Land Surface Temperature (MOD11A2.061)
+Link Url:  https://lpdaac.usgs.gov/products/mod11a2v061/
+
+Row 4:
+Link Text: NASA EMIT L2B Mineral Spectroscopy (Imaging Spectroscopy)
+Link Url:  https://earth.jpl.nasa.gov/emit/
+
+Row 5:
+Link Text: NASA Planetary Data System (PDS) Central Node
+Link Url:  https://pds.nasa.gov/
+
+Row 6:
+Link Text: NASA Earthdata Search Portal
+Link Url:  https://search.earthdata.nasa.gov/
+
+Row 7:
+Link Text: NASA Artemis IV Mission Architecture Overview
+Link Url:  https://www.nasa.gov/specials/artemis/
+
+
+--------------------------------------------------------------------------------
+[FIELD: Space Agency Partner & Other Data]
+(Click "+ Add New Link" for each row below)
+
+Row 1:
+Link Text: ESA Copernicus GLO-30 Digital Elevation Model (30m)
+Link Url:  https://dataspace.copernicus.eu/
+
+Row 2:
+Link Text: ECMWF Copernicus Climate Data Store (ERA5-Land)
+Link Url:  https://cds.climate.copernicus.eu/
+
+Row 3:
+Link Text: EarthChem PetDB Database (IEDA / Columbia University)
+Link Url:  https://www.earthchem.org/petdb/
+
+Row 4:
+Link Text: USGS Spectral Library Version 7
+Link Url:  https://crustal.usgs.gov/speclab/QueryAll07a.php
+
+Row 5:
+Link Text: Open-Meteo Historical Climate Archive API
+Link Url:  https://open-meteo.com/
+
+Row 6:
+Link Text: Google Gemini 2.5 Flash API (@google/genai)
+Link Url:  https://ai.google.dev/
+
+Row 7:
+Link Text: Three.js WebGL 3D Computer Graphics Library
+Link Url:  https://threejs.org/
+
+Row 8:
+Link Text: React 19 User Interface Library
+Link Url:  https://react.dev/
+
+Row 9:
+Link Text: Vite 8 Next Generation Frontend Tooling
+Link Url:  https://vite.dev/
+
+Row 10:
+Link Text: Django 5 & Django REST Framework
+Link Url:  https://www.django-rest-framework.org/
+
+Row 11:
+Link Text: scikit-learn Machine Learning in Python
+Link Url:  https://scikit-learn.org/
+
+Row 12:
+Link Text: Tailwind CSS Utility-First Styling Framework
+Link Url:  https://tailwindcss.com/
+
+Row 13:
+Link Text: Recharts Composable React Charting Library
+Link Url:  https://recharts.org/
+
+
+================================================================================
+SECTION 4: PROJECT SUBMISSION VERIFICATION
+================================================================================
+
+[X] Check: Agree to Terms and Conditions *
+    "I have read and understand the project submission requirements as contained
+     in the NASA Space Apps Project Submission Guide, and I agree to the
+     Participant Terms and Conditions and Privacy Policy."
+
+[X] Check: Confirm All Work is Original *
+    "I confirm that the submitted project represents my team's original work
+     and that all external resources, including code, text, and images used
+     in the project, are listed in the NASA Data and the Space Agency Partner
+     & Other Data fields of the project submission form. In creating your project,
+     you confirm that your team did not use any copyrighted materials (i.e.,
+     music, images, text, etc.) that you don't have permission to use."
+
+
+================================================================================
+FINAL SUBMISSION CHECKLIST (from Video Transcript)
+================================================================================
+1. [ ] Check that your PPT / Video demonstration link is publicly viewable
+       (No password, login, or permission required)
+2. [ ] Slide presentation is 7 slides or less OR Video is 30 seconds or less
+3. [ ] All text is in English (if video has foreign speech, English subtitles added)
+4. [ ] No photos, video, or audio of anyone under 18 years old
+5. [ ] No NASA logos/flags modified or created via Super Intelligence (SI)
+6. [ ] Click the blue "Save Progress" button
+7. [ ] Make sure the "Lock" toggle is OFF
+8. [ ] Click the blue "Submit for Judging" button before 11:59 PM local time
+9. [ ] Confirm that a green notification banner appears at the top
+10.[ ] Download your Participant Certificate:
+       Avatar -> Profile -> Participant Information -> Yellow Download Button
+       (Select Letter 8.5x11 in or A4 215x297 mm, PDF format)
+
+================================================================================
+VIDEO TRANSCRIPT COMPLIANCE MATRIX
+================================================================================
+- Summary: 50-200 words? YES (178 words / 1,286 chars).
+  Answers: What developed? How addresses challenge? Why important? YES.
+- Project Details: Answers all 6 questions from transcript? YES:
+  1. What does it do and how does it work?
+  2. What benefits does it have?
+  3. What is the intended impact?
+  4. What tools, coding languages, hardware, software?
+  5. How is it creative?
+  6. What factors (energy, accessibility, cost)?
+- SI Disclosure: Dropdown selected + visible watermark + metadata note? YES.
+- NASA Data: At least 1 NASA dataset for Global Award? YES (7 verified PDS4/Earthdata sets).
+- Space Agency Partner Data: All other tools & data credited? YES (13 entries).
+- Verification: Both checkboxes checked? YES.
+- Judging: Evaluated on Impact, Creativity, Validity, Relevance, Presentation (1-5)? YES.
+
+================================================================================
+END OF FILE
+================================================================================

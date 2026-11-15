@@ -1,0 +1,481 @@
+================================================================================
+   ECHO — NASA SPACE APPS CHALLENGE 2026 — COMPLETE SUBMISSION GUIDE
+================================================================================
+
+This file contains EVERYTHING you need to fill out the NASA Space Apps Challenge
+project submission page. Copy-paste directly into each field.
+
+Deadline: Sunday, November 15, 2026 at 11:59 PM (your local event time zone)
+Important: Click "Submit for Judging" — just saving is NOT enough.
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+1. PROJECT NAME
+2. PROJECT SUMMARY (50-200 words)
+3. PROJECT DEMONSTRATION LINK (slide deck or 30-sec video)
+4. PROJECT LINK (publicly accessible)
+5. PROJECT DETAILS (full description)
+6. USE OF SUPER INTELLIGENCE (SI) DISCLOSURE
+7. NASA DATA & RESOURCES (required for Global Award eligibility)
+8. SPACE AGENCY PARTNER & OTHER DATA
+9. PROJECT SUBMISSION VERIFICATION (checkboxes)
+10. JUDGING CRITERIA ALIGNMENT (reference for your PPT/video)
+11. PPT GUIDANCE (7-slide structure)
+12. VIDEO GUIDANCE (30-second structure)
+
+================================================================================
+1. PROJECT NAME
+================================================================================
+
+ECHO — Earth Correlation & Habitat Observation
+
+================================================================================
+2. PROJECT SUMMARY (copy-paste this — 194 words)
+================================================================================
+
+Project ECHO (Earth Correlation & Habitat Observation) is a full-stack
+scientific decision-support platform that discovers, qualifies, and permits
+terrestrial analog sites for NASA's Artemis IV lunar South Pole surface
+campaign (2028).
+
+Artemis IV astronauts will test rovers, drills, and spacesuits on crater rims
+where temperatures plunge to -246°C, slopes reach 25°, and abrasive regolith
+contains corrosive sulfur. Before flight, engineers must rehearse on Earth —
+but existing analog catalogs are static and limited to a handful of well-known
+sites.
+
+ECHO solves this through a 6-module pipeline: (1) an interactive 3D Moon globe
+built from NASA LRO LOLA/Diviner data, (2) a multi-objective ML matching
+engine (R² = 95.10%) that discovered 15 novel unvisited candidate sites across
+Antarctica, Chile, and Iceland, (3) deep-dive scientific dossiers, (4) a
+Google Gemini AI regulatory permit intelligence system, (5) a 3D digital twin
+hardware exposure lab with real sulfur degradation modeling, and (6) an
+empirical validation dashboard with PDS-verified cross-validation.
+
+All data is sourced from NASA PDS, Copernicus, ERA5-Land, and PetDB —
+zero static placeholders, zero hallucinated permits.
+
+================================================================================
+3. PROJECT DEMONSTRATION LINK
+================================================================================
+
+[INSERT YOUR LINK HERE]
+
+Requirements:
+- Either a SLIDE PRESENTATION (max 7 slides including title/intro)
+  OR a VIDEO (max 30 seconds)
+- Must be publicly accessible (no password, no login, no permission needed)
+- Upload to YouTube, Google Drive, GitHub, OneDrive, or Dropbox
+- Use the FULL URL format: https://...
+
+Recommended platforms:
+- Video: YouTube (unlisted), Google Drive (share link set to "Anyone with link")
+- Slides: Google Slides (share link set to "Anyone with link"), GitHub
+
+================================================================================
+4. PROJECT LINK (publicly accessible)
+================================================================================
+
+GitHub Repository:
+https://github.com/IRehanKhanI/ECHO
+
+Live Deployed Website (Vercel):
+[INSERT YOUR VERCEL URL HERE — e.g., https://echo-xxxxx.vercel.app]
+
+Note: Provide the GitHub link at minimum. If the Vercel deployment is live,
+provide that URL as well. The link must NOT require a password, permission,
+or registration to access.
+
+================================================================================
+5. PROJECT DETAILS (copy-paste this into the rich text editor)
+================================================================================
+
+--- WHAT IT DOES & HOW IT WORKS ---
+
+ECHO is a 6-module end-to-end platform for qualifying terrestrial analog
+sites for NASA Artemis IV lunar South Pole hardware testing:
+
+Module 1 — Mission Brief: Interactive 3D WebGL globe of the lunar South Pole
+(80°S–90°S) rendered from NASA LRO LOLA 240m altimetry and Diviner thermal
+radiometry. Users select from 4 verified Artemis IV candidate landing sites
+(Shackleton Rim, Malapert Massif, Haworth PSR, Connecting Ridge) with
+real-time grazing sun angle computation (+2.4° to +7.1°).
+
+Module 2 — Discover Sites: A multi-objective machine learning matching engine
+compares 8 physical parameters (temperature extrema, slope, sulfur
+concentration, plagioclase mineralogy, aridity, elevation, FeO weight percent,
+and pyroxene content) between lunar targets and 30 global Earth candidate
+sites. The engine uses a Random Forest regressor trained on NASA PDS and
+Copernicus data with 5-fold spatial block cross-validation achieving
+R² = 95.10% and RMSE = 0.0315. A "Novel / Unvisited Sites Only" filter
+highlights 15 newly identified locations with ZERO documented prior NASA
+field usage.
+
+Module 3 — Site Dossier: Deep-dive 4-pillar scientific characterization for
+each candidate site, including geological composition, thermal regime, terrain
+morphometry, and negative constraint analysis (where the analog breaks down
+relative to lunar conditions).
+
+Module 4 — Access & Permits: An AI-powered regulatory permit intelligence
+system using Google Gemini 2.5 Flash that identifies all applicable permits,
+zoning laws, environmental clearances (NEPA), export controls (ITAR/EAR),
+and statutory restrictions (Wolf Amendment P.L. 112-55 §539) for any
+candidate site worldwide. All AI-generated permit information is clearly
+flagged as advisory vs. verified statutory data.
+
+Module 5 — Exposure Lab: A 3D digital twin hardware simulation environment
+where users import NASA CAD models (.glb, .gltf, .obj) of Artemis IV
+equipment (TX-DRILL coring mast, Lunar Terrain Vehicle, Regolith Robotic
+Arm, Cold-Soak Lander) and simulate sulfur-driven material degradation using
+an empirical wear model calibrated against plagioclase abrasion and sulfate
+corrosion data.
+
+Module 6 — Validation: An empirical ML validation dashboard showing
+actual-vs-predicted scatter plots, residual distribution histograms, 95%
+confidence interval envelopes, and 5-model benchmark comparisons — all
+powered by real PDS-verified data, not simulated or mock values.
+
+--- BENEFITS & INTENDED IMPACT ---
+
+1. Discovers 15 novel, unvisited Earth analog sites that have never been used
+   for NASA field testing — breaking the "legacy site bottleneck" of
+   repeatedly relying on Devon Island, Arizona, and Hawaii.
+2. Provides mission planners with quantified, auditable analog fidelity scores
+   instead of qualitative "looks similar" assessments.
+3. Automates the complex multi-jurisdictional statutory permitting process that
+   currently takes weeks of manual legal research.
+4. Enables hardware engineers to digitally stress-test rover components against
+   realistic abrasive regolith chemistry before committing to expensive
+   physical field prototypes.
+5. All scientific claims carry full provenance citations traceable to NASA PDS4
+   product identifiers.
+
+--- TOOLS, LANGUAGES, HARDWARE & SOFTWARE ---
+
+Frontend:
+- React 19, TypeScript 7, Vite 8.3
+- Three.js 0.187 + @react-three/fiber 9.4 + @react-three/drei 10.7
+  (3D WebGL lunar/Earth globes, hardware digital twins)
+- Tailwind CSS 4.3 (responsive styling)
+- Recharts 3.10 (scientific scatter plots, histograms)
+- Lucide React (iconography)
+- Motion (Framer Motion animations)
+
+Backend:
+- Python 3.14, Django 5.0, Django REST Framework 3.14
+- scikit-learn 1.3 (Random Forest, RobustScaler, spatial cross-validation)
+- NumPy 1.24, Pandas 2.0 (data processing)
+- xarray + h5netcdf (NetCDF4 multidimensional climate data)
+
+AI Integration:
+- Google Gemini 2.5 Flash (@google/genai SDK) — regulatory permit analysis
+
+External APIs:
+- Open-Meteo Archive API (historical climate verification)
+- Copernicus Climate Data Store (CDS) API — ERA5-Land soil temperature
+- PetDB (EarthChem/IEDA) — whole-rock geochemical assays
+
+Deployment:
+- Vercel (multi-service: Vite frontend + Django backend)
+- GitHub (version control, public repository)
+
+--- CREATIVITY ---
+
+ECHO is creative because it:
+1. Treats analog selection as a MULTI-OBJECTIVE optimization problem across
+   8 coupled physical parameters simultaneously, not a single-variable lookup.
+2. Introduces a "Novelty Filter" that deliberately surfaces sites with ZERO
+   prior NASA usage — breaking decades of field testing bias toward the same
+   handful of well-trodden locations.
+3. Combines planetary science, machine learning, 3D hardware simulation, and
+   legal regulatory intelligence into a single unified workflow that has never
+   existed before as an integrated platform.
+4. Uses a 3D digital twin approach where NASA engineers can import their own
+   proprietary CAD hardware models and simulate surface exposure conditions.
+
+--- FACTORS CONSIDERED ---
+
+- Accessibility: Full-stack web application accessible via any modern browser
+  with no installation, plugin, or registration required.
+- Cost: Uses exclusively open/free NASA and ESA datasets; no paid data
+  subscriptions. The Gemini API is available on a free tier.
+- Energy: Client-side WebGL rendering minimizes server-side computation.
+  The ML model runs in milliseconds on standard hardware.
+- Scientific Integrity: Every data point carries provenance citations. The
+  platform explicitly warns users that Earth analogs CANNOT reproduce lunar
+  vacuum, 1/6th gravity, cosmic radiation, or electrostatic regolith levitation.
+
+================================================================================
+6. USE OF SUPER INTELLIGENCE (SI) DISCLOSURE
+================================================================================
+
+SELECT ALL THAT APPLY on the dropdown menu:
+
+[x] I used SI to generate or assist with CODE
+    → Google Gemini and Claude were used to accelerate frontend/backend
+      development. All SI-generated code is acknowledged in project metadata
+      and code comments.
+
+[x] I used SI to generate or assist with TEXT
+    → Google Gemini 2.5 Flash is integrated directly into Module 4 (Access &
+      Permits) to generate regulatory permit analysis. All AI-generated text
+      is clearly flagged with "AI ADVISORY — HUMAN AUDIT REQUIRED" badges
+      and separated from verified statutory data.
+
+[x] I used SI to generate or assist with IMAGES
+    → The ECHO logo/insignia was created with SI assistance. It contains a
+      visible "SI-generated" acknowledgment.
+
+NOTE: No NASA branding, logos, flags, or mission identifiers were used in
+any SI-generated content.
+
+================================================================================
+7. NASA DATA & RESOURCES (required for Global Award eligibility)
+================================================================================
+
+Add each of these as a separate entry (Link Text + Link URL):
+
+Link Text: NASA LRO LOLA Gridded Data Records (Lunar Elevation & Slope)
+Link URL: https://pds-geosciences.wustl.edu/missions/lro/lola.htm
+
+Link Text: NASA LRO Diviner Lunar Radiometer (Thermal Maps)
+Link URL: https://pds-geosciences.wustl.edu/missions/lro/diviner.htm
+
+Link Text: NASA MODIS Terra/Aqua Land Surface Temperature (MOD11A2.061)
+Link URL: https://lpdaac.usgs.gov/products/mod11a2v061/
+
+Link Text: NASA EMIT L2B Mineral Spectroscopy
+Link URL: https://earth.jpl.nasa.gov/emit/
+
+Link Text: NASA Earthdata Search Portal
+Link URL: https://search.earthdata.nasa.gov/
+
+Link Text: NASA Artemis IV Mission Overview
+Link URL: https://www.nasa.gov/specials/artemis/
+
+Link Text: NASA Planetary Data System (PDS4)
+Link URL: https://pds.nasa.gov/
+
+================================================================================
+8. SPACE AGENCY PARTNER & OTHER DATA (optional but recommended)
+================================================================================
+
+Add each of these as a separate entry (Link Text + Link URL):
+
+Link Text: ESA Copernicus GLO-30 Digital Elevation Model (30m)
+Link URL: https://dataspace.copernicus.eu/
+
+Link Text: ECMWF Copernicus Climate Data Store (ERA5-Land)
+Link URL: https://cds.climate.copernicus.eu/
+
+Link Text: EarthChem PetDB Geochemical Database (IEDA/Columbia University)
+Link URL: https://www.earthchem.org/petdb/
+
+Link Text: USGS Spectral Library Version 7
+Link URL: https://crustal.usgs.gov/speclab/QueryAll07a.php
+
+Link Text: Open-Meteo Historical Weather API
+Link URL: https://open-meteo.com/
+
+Link Text: Google Gemini AI API (@google/genai SDK)
+Link URL: https://ai.google.dev/
+
+Link Text: Three.js WebGL Library
+Link URL: https://threejs.org/
+
+Link Text: React (Meta Open Source)
+Link URL: https://react.dev/
+
+Link Text: Vite Build Tool
+Link URL: https://vite.dev/
+
+Link Text: Django REST Framework
+Link URL: https://www.django-rest-framework.org/
+
+Link Text: scikit-learn Machine Learning Library
+Link URL: https://scikit-learn.org/
+
+Link Text: Tailwind CSS
+Link URL: https://tailwindcss.com/
+
+Link Text: Recharts Visualization Library
+Link URL: https://recharts.org/
+
+================================================================================
+9. PROJECT SUBMISSION VERIFICATION
+================================================================================
+
+CHECK BOTH BOXES:
+
+[x] Agree to Terms and Conditions
+    "I have read and understand the project submission requirements as
+     contained in the NASA Space Apps Project Submission Guide, and I agree
+     to the Participant Terms and Conditions and Privacy Policy."
+
+[x] Confirm All Work is Original
+    "I confirm that the submitted project represents my team's original work
+     and that all external resources, including code, text, and images used
+     in the project, are listed in the NASA Data and the Space Agency Partner
+     & Other Data fields of the project submission form."
+
+Then click: "Submit for Judging"
+
+================================================================================
+10. JUDGING CRITERIA ALIGNMENT (1-5 scale at every judging level)
+================================================================================
+
+Your project will be evaluated on these 5 criteria. Here is how ECHO maps
+to each:
+
+IMPACT (1-5):
+- Directly supports NASA Artemis IV (2028) mission planning
+- Discovered 15 novel, previously unvisited analog sites globally
+- Reduces weeks of manual permitting research to seconds
+- Enables hardware engineers to test digital twins before physical prototypes
+- Quantified: R² = 95.10%, RMSE = 0.0315 matching accuracy
+
+CREATIVITY (1-5):
+- First platform to combine multi-objective analog matching, 3D hardware
+  simulation, temporal analysis, and AI permit intelligence in one tool
+- Novelty Filter concept — deliberately surfaces unknown sites
+- 8-parameter coupled physical vector matching (not single-variable)
+- Custom 3D CAD importer for NASA hardware models (.glb/.gltf/.obj)
+
+VALIDITY (1-5):
+- All data sourced from NASA PDS4, ESA Copernicus, ERA5-Land, PetDB
+- 5-fold spatial block cross-validation with published R² and RMSE
+- Every output carries provenance citations (PDS product IDs)
+- Explicit disclaimer: Earth cannot reproduce lunar vacuum/gravity/radiation
+- AI advisory vs. verified statutory data clearly separated
+
+RELEVANCE (1-5):
+- Uses 7+ NASA datasets (LOLA, Diviner, MODIS, EMIT, PDS4, Earthdata, Artemis)
+- Directly addresses: "Identify Earth Locations that Analog the Permanent
+  Moon Base Locations and Mars"
+- Built specifically for Artemis IV South Pole target sites
+
+PRESENTATION (1-5):
+- Professional 6-module sequential workflow with top navigation bar
+- Interactive 3D WebGL globes (Moon + Earth) with real textures
+- Clean, responsive Tailwind CSS design with ECHO branding
+- Live deployed on Vercel — accessible from any browser, no installation
+
+================================================================================
+11. PPT GUIDANCE (if you are doing a 7-slide presentation)
+================================================================================
+
+Your PPT is already done, but for reference, the ideal 7-slide structure:
+
+Slide 1 — Title
+  ECHO: Earth Correlation & Habitat Observation
+  NASA Space Apps Challenge 2026
+  Team Name: JINX
+  Challenge: Identify Earth Locations that Analog the Permanent Moon Base
+             Locations and Mars
+
+Slide 2 — The Problem
+  Artemis IV (2028) needs Earth analog sites for hardware testing.
+  Current analog catalogs are static, limited, and over-reliant on the same
+  handful of legacy sites. No integrated permitting solution exists.
+
+Slide 3 — Our Solution
+  ECHO: A 6-module platform that discovers, qualifies, simulates, and
+  permits terrestrial analog sites using real NASA data and ML.
+  Show the 6-module workflow diagram.
+
+Slide 4 — Data & Technology
+  7+ NASA datasets (LOLA, Diviner, MODIS, EMIT, PDS4)
+  ML engine: R² = 95.10%, 5-fold spatial cross-validation
+  Tech: React + Three.js + Django + Gemini AI
+  Show data pipeline diagram.
+
+Slide 5 — Key Results
+  15 novel unvisited sites discovered
+  30 total candidates across 6 biomes
+  Automated permit intelligence for any jurisdiction
+  3D hardware digital twin with sulfur degradation modeling
+
+Slide 6 — Demo Screenshots
+  Show the 3D Moon globe, Discover Sites page, and Exposure Lab.
+  Annotate key interactive features.
+
+Slide 7 — Impact & Next Steps
+  Directly supports Artemis IV mission planning
+  Open source, deployed live, ready for NASA adoption
+  Future: Mars Jezero Crater extension, real-time satellite feeds
+
+================================================================================
+12. VIDEO GUIDANCE (if you are doing a 30-second video)
+================================================================================
+
+Your video is already prepared, but for reference, the ideal 30-second
+structure:
+
+0:00-0:05 — Hook
+  "Artemis IV astronauts will land at the lunar South Pole in 2028.
+   Before they go, engineers need Earth analogs to test their hardware."
+
+0:05-0:12 — Problem
+  "But existing analog catalogs are static, limited, and over-reliant on
+   the same handful of sites. There's no integrated solution."
+
+0:12-0:22 — Solution Demo
+  "ECHO uses 7 NASA datasets and machine learning to discover 15 novel
+   analog sites, simulate hardware exposure in 3D, and automate permit
+   analysis with AI — all in one platform."
+  [Show screen recording: 3D Moon → Discover Sites → Exposure Lab]
+
+0:22-0:28 — Results
+  "R-squared 95%, 30 candidate sites, real NASA PDS data.
+   Zero static placeholders. Zero hallucinated permits."
+
+0:28-0:30 — Closing
+  "ECHO — Earth Correlation & Habitat Observation."
+
+================================================================================
+IMPORTANT REMINDERS BEFORE SUBMITTING
+================================================================================
+
+1. ALL LINKS must be publicly accessible — test them in an incognito/private
+   browser window to verify no login is required.
+
+2. ALL TEXT must be in English.
+
+3. If your video is in another language, it MUST have English subtitles.
+
+4. Your demo (PPT or video) and submission CANNOT include photos, video, or
+   audio of individuals under age 18.
+
+5. SI-generated images/videos MUST have a visible watermark.
+
+6. SI-generated audio MUST be acknowledged in descriptive text/metadata.
+
+7. SI-generated code and data MUST be acknowledged in descriptive text/metadata.
+
+8. No NASA branding/logos in SI-generated content.
+
+9. After clicking "Submit for Judging", verify the green success banner
+   appears. Download your participant certificate from your profile page.
+
+10. You can re-submit multiple times — only your LAST submission is reviewed.
+
+================================================================================
+JUDGING TIMELINE
+================================================================================
+
+- Global Nominees announced: December 3, 2026
+- Global Finalists & Honorable Mentions: December 17, 2026
+- Global Winners announced: January 26, 2027
+
+================================================================================
+TECHNICAL SUPPORT
+================================================================================
+
+If you experience technical issues:
+Email: web@spaceappschallenge.org
+Include: Your username and team name
+
+================================================================================
+END OF SUBMISSION GUIDE
+================================================================================

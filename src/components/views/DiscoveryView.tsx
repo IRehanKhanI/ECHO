@@ -413,76 +413,172 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
       : sourceCandidates;
 
     if (!backendMatches || backendMatches.length === 0) {
-      return baseList;
+      // Ensure strict deduplication even on raw baseList
+      const seenIds = new Set<string>();
+      return baseList.filter((c) => {
+        if (seenIds.has(c.site.id)) return false;
+        seenIds.add(c.site.id);
+        return true;
+      });
     }
 
-    // Match backend records with existing candidate objects
+    // Precise dictionary mapping backend match IDs/names to frontend candidate IDs
+    const candidateAliasMap: Record<string, string> = {
+      univ_valley: 'univ_valley',
+      'university valley': 'univ_valley',
+      'ear-02': 'univ_valley',
+      mount_fleming: 'mount_fleming',
+      'mount fleming': 'mount_fleming',
+      'mount fleming sandstone nunatak': 'mount_fleming',
+      'ear-20': 'mount_fleming',
+      victoria_valley: 'victoria_valley',
+      'victoria valley': 'victoria_valley',
+      'victoria valley upper basin': 'victoria_valley',
+      'ear-19': 'victoria_valley',
+      allan_hills: 'allan_hills',
+      'allan hills': 'allan_hills',
+      'allan hills blue ice margin': 'allan_hills',
+      'ear-21': 'allan_hills',
+      vestfold_hills: 'vestfold_hills',
+      'vestfold hills': 'vestfold_hills',
+      'ear-22': 'vestfold_hills',
+      salar_gorbea: 'salar_gorbea',
+      'salar de gorbea': 'salar_gorbea',
+      'ear-01': 'salar_gorbea',
+      kilauea: 'kilauea',
+      'mauna kea': 'kilauea',
+      'ear-03': 'kilauea',
+      haughton_crater: 'haughton_crater',
+      haughton: 'haughton_crater',
+      'ear-04': 'haughton_crater',
+      atacama_pajonales: 'atacama_pajonales',
+      pajonales: 'atacama_pajonales',
+      atacama_yungay: 'atacama_yungay',
+      yungay: 'atacama_yungay',
+      'ear-05': 'atacama_pajonales',
+      stillwater: 'stillwater',
+      'ear-06': 'stillwater',
+      shawmere: 'shawmere',
+      'ear-07': 'shawmere',
+      black_point: 'black_point',
+      'ear-08': 'black_point',
+      craters_moon: 'craters_moon',
+      'craters of the moon': 'craters_moon',
+      'ear-09': 'craters_moon',
+      mojave: 'mojave',
+      'ear-10': 'mojave',
+      pilbara: 'pilbara',
+      'ear-11': 'pilbara',
+      pyhasalmi_mine: 'pyhasalmi_mine',
+      pyhäsalmi: 'pyhasalmi_mine',
+      'ear-12': 'pyhasalmi_mine',
+      svalbard: 'svalbard',
+      'ear-13': 'svalbard',
+      mdrs_utah: 'mdrs_utah',
+      mdrs: 'mdrs_utah',
+      'ear-14': 'mdrs_utah',
+      taklamakan: 'taklamakan',
+      'ear-15': 'taklamakan',
+      salar_pedernales: 'salar_pedernales',
+      pedernales: 'salar_pedernales',
+      'ear-16': 'salar_pedernales',
+      salar_antofalla: 'salar_antofalla',
+      antofalla: 'salar_antofalla',
+      'ear-17': 'salar_antofalla',
+      cerro_galan: 'cerro_galan',
+      'cerro galán': 'cerro_galan',
+      'ear-18': 'cerro_galan',
+      axel_heiberg: 'axel_heiberg',
+      'ear-23': 'axel_heiberg',
+      hekla: 'hekla',
+      'ear-24': 'hekla',
+      disko_island: 'disko_island',
+      'ear-25': 'disko_island',
+      qaidam_basin: 'qaidam_basin',
+      qaidam: 'qaidam_basin',
+      'ear-26': 'qaidam_basin',
+      putana_fumarole: 'putana_fumarole',
+      putana: 'putana_fumarole',
+      'ear-27': 'putana_fumarole',
+      lastarria: 'lastarria',
+      'ear-28': 'lastarria',
+      colca_canyon: 'colca_canyon',
+      colca: 'colca_canyon',
+      'ear-29': 'colca_canyon',
+      snaefellsnes: 'snaefellsnes',
+      'ear-30': 'snaefellsnes',
+      death_valley: 'death_valley',
+      negev_dmars: 'negev_dmars',
+    };
+
+    // Match backend records with existing candidate objects cleanly
     const findCandidate = (match: EarthAnalogResult): ScoredCandidate | undefined => {
-      const matchName = match.location_name.toLowerCase();
+      const matchName = (match.location_name || '').toLowerCase().trim();
+      const matchId = String(match.id || '').toLowerCase().trim();
+
+      // 1. Direct dictionary alias lookup
+      const resolvedId = candidateAliasMap[matchId] || candidateAliasMap[matchName];
+      if (resolvedId) {
+        const found = baseList.find((c) => c.site.id === resolvedId);
+        if (found) return found;
+      }
+
+      // 2. Strict ID or Name inclusion
       return baseList.find((c) => {
         const cName = c.site.name.toLowerCase();
         const cId = c.site.id.toLowerCase();
+        if (cId === matchId || cName === matchName) return true;
         if (cName.includes(matchName) || matchName.includes(cName)) return true;
-        if (cId === matchName.replace(/\s+/g, '_')) return true;
-        if (matchName.includes('university valley') && cId === 'univ_valley') return true;
-        if (matchName.includes('black point') && cId === 'black_point') return true;
-        if (matchName.includes('haughton') && cId === 'haughton_crater') return true;
-        if (matchName.includes('salar de gorbea') && cId === 'salar_gorbea') return true;
-        if (matchName.includes('pedernales') && cId === 'salar_pedernales') return true;
-        if (matchName.includes('victoria') && cId === 'victoria_valley') return true;
-        if (matchName.includes('kilauea') && cId === 'kilauea') return true;
-        if (matchName.includes('pajonales') && cId === 'atacama_pajonales') return true;
-        if (matchName.includes('yungay') && cId === 'atacama_yungay') return true;
-        if (matchName.includes('stillwater') && cId === 'stillwater') return true;
-        if (matchName.includes('shawmere') && cId === 'shawmere') return true;
-        if (matchName.includes('svalbard') && cId === 'svalbard') return true;
-        if (matchName.includes('craters of the moon') && cId === 'craters_moon') return true;
-        if (matchName.includes('pyhäsalmi') && cId === 'pyhasalmi_mine') return true;
-        if (matchName.includes('qaidam') && cId === 'qaidam_basin') return true;
-        if (matchName.includes('death valley') && cId === 'death_valley') return true;
-        if (matchName.includes('pilbara') && cId === 'pilbara') return true;
-        if (matchName.includes('negev') && cId === 'negev_dmars') return true;
-        if (matchName.includes('mdrs') && cId === 'mdrs_utah') return true;
+        // Very tight coordinate match (within 0.05° ~ 5km, never loose 0.6°)
         const dLat = Math.abs(c.site.lat - match.lat);
         const dLon = Math.abs(c.site.lon - match.lng);
-        return dLat < 0.6 && dLon < 0.6;
+        return dLat < 0.05 && dLon < 0.05;
       });
     };
 
     const matchedCandidateIds = new Set<string>();
     const mergedList: ScoredCandidate[] = [];
 
-    // 1. Merge and rank backend matches dynamically
+    // 1. Merge and rank backend matches dynamically without ANY duplicate entries
     backendMatches.forEach((match) => {
       const existing = findCandidate(match);
+      if (!existing || matchedCandidateIds.has(existing.site.id)) {
+        return;
+      }
+
       const dynamicScore = Math.max(
         62,
         Math.min(99, Math.round((1 - Math.min(1.0, match.cosine_distance * 0.42)) * 100))
       );
 
-      if (existing) {
-        matchedCandidateIds.add(existing.site.id);
-        mergedList.push({
-          ...existing,
-          bestMonthScore: dynamicScore,
-          annualMeanScore: Math.max(58, dynamicScore - 3),
-        });
-      }
+      matchedCandidateIds.add(existing.site.id);
+      mergedList.push({
+        ...existing,
+        bestMonthScore: dynamicScore,
+        annualMeanScore: Math.max(58, dynamicScore - 3),
+      });
     });
 
     // 2. Append remainder of verified real candidate sites
     baseList.forEach((c) => {
       if (!matchedCandidateIds.has(c.site.id)) {
+        matchedCandidateIds.add(c.site.id);
         mergedList.push(c);
       }
     });
 
-    return mergedList;
+    // 3. Absolute final deduplication guarantee
+    const seen = new Set<string>();
+    return mergedList.filter((c) => {
+      if (seen.has(c.site.id)) return false;
+      seen.add(c.site.id);
+      return true;
+    });
   }, [rankedCandidates, backendMatches, noveltyOnly]);
 
   // Filter candidates based on active filter pill & search query
   const filteredCandidates = useMemo(() => {
-    return effectiveCandidates.filter((cand) => {
+    const rawFiltered = effectiveCandidates.filter((cand) => {
       const site = cand.site;
 
       // 0. Novelty Filter
@@ -567,6 +663,14 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({
         if (!matchesQuery) return false;
       }
 
+      return true;
+    });
+
+    // Final deduplication safeguard
+    const seen = new Set<string>();
+    return rawFiltered.filter((c) => {
+      if (seen.has(c.site.id)) return false;
+      seen.add(c.site.id);
       return true;
     });
   }, [effectiveCandidates, activeFilter, searchQuery]);

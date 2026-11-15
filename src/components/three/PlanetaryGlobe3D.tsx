@@ -951,20 +951,37 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
       if (!el) return;
       const w = el.clientWidth;
       const h = el.clientHeight;
-      _camDir.copy(camera.position).normalize();
 
-      const nextProjected: ProjectedPin[] = pinsRef.current.map((pin) => {
+      const camPos = camera.position;
+      const camDist = camPos.length();
+      _camDir.copy(camPos).normalize();
+
+      // On a unit sphere (r = 1.0), the geometric horizon angle cosine from the camera is:
+      // cos(theta_horizon) = r / d = 1.0 / camDist.
+      // For camera distance ~2.4, cutoff is ~0.416. Any point with dot <= cutoff is physically behind the horizon!
+      const horizonCutoff = Math.max(0.18, (1.0 / camDist) + 0.04);
+
+      const nextProjected: ProjectedPin[] = [];
+      pinsRef.current.forEach((pin) => {
         // Project above the top of the 3D pin (pin head ~1.054, top ~1.074)
-        latLonToVec3(pin.lat, pin.lon, 1.085, _v1);
+        latLonToVec3(pin.lat, pin.lon, 1.075, _v1);
         const dot = _v2.copy(_v1).normalize().dot(_camDir);
-        const visible = dot > 0.08;
+        // Strict horizon occlusion: completely discard any point rotated behind the limb of the sphere!
+        if (dot <= horizonCutoff) return;
+
         _v1.project(camera);
-        return {
+
+        // Discard any point that projects behind the camera plane (NDC z in [-1, 1]):
+        if (_v1.z < -1.0 || _v1.z > 1.0) return;
+        // Also discard points projected far outside the canvas bounds:
+        if (_v1.x < -1.1 || _v1.x > 1.1 || _v1.y < -1.1 || _v1.y > 1.1) return;
+
+        nextProjected.push({
           ...pin,
           x: ((_v1.x + 1) / 2) * w,
           y: ((-_v1.y + 1) / 2) * h,
-          visible,
-        };
+          visible: true,
+        });
       });
       setProjectedPins(nextProjected);
     }
@@ -1027,8 +1044,9 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
             const norm = pGroup.userData.normal as THREE.Vector3;
             if (!norm) continue;
 
+            const horizonCutoff = Math.max(0.12, (1.0 / camPos.length()) + 0.02);
             const dot = norm.dot(_camDir);
-            const isFront = dot > 0.04;
+            const isFront = dot > horizonCutoff;
             pGroup.visible = isFront;
 
             if (isFront) {
@@ -1341,26 +1359,9 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
                 );
               }
 
-              // Sleek, compact glowing circular dot beacon for non-active pins (zero duplicate background box or label overlap!)
-              return (
-                <button
-                  key={pin.id}
-                  type="button"
-                  onClick={() => onPinClick?.(pin.id)}
-                  onMouseEnter={() => setHoveredPinId(pin.id)}
-                  onMouseLeave={() => setHoveredPinId(null)}
-                  style={{
-                    transform: `translate3d(${pin.x}px, ${pin.y}px, 0) translate(-50%, -50%)`,
-                  }}
-                  aria-label={pin.label}
-                  title={`${pin.label}${pin.scoreBadge ? ` · ${pin.scoreBadge}` : ''} (Click to select)`}
-                  className="pointer-events-auto absolute top-0 left-0 z-10 transition-transform duration-150 hover:scale-140 focus:outline-none cursor-pointer p-0.5"
-                >
-                  <div className="relative flex items-center justify-center">
-                    <span className={`w-2.5 h-2.5 rounded-full ${dotColor} border border-white/90 shadow-xs`} />
-                  </div>
-                </button>
-              );
+              // If not active and not hovered, do not render a 2D HTML overlay dot.
+              // The 3D Three.js pins on the globe surface already render all candidate pins with true 3D depth and rotation.
+              return null;
             })}
         </div>
       )}
